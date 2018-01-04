@@ -15,18 +15,18 @@ if __name__ != '__main__':
     exit()
 
 parser = argparse.ArgumentParser(description='Control a linkplay device.', usage='%(prog)s [--help] [-v...] address command')
-parser.add_argument("-v", "--verbosity", action="count", default=0, help="increase logging verbosity")
+parser.add_argument("-v", "--verbosity", action="count", default=0, help="increase logging verbosity (up to -vvv)")
 parser.add_argument('address', type=str, help='address (hostname or ip) of device')
 parser.add_argument('commands', nargs='+', metavar="command", help='one or more words to send to device')
 args = parser.parse_args()
 
-verbosity_to_log_level_map = {0: logging.WARNING, 1: logging.INFO, 2: logging.DEBUG}
+verbosity_to_log_level_map = {0: logging.ERROR, 1: logging.INFO, 2: logging.DEBUG}
 log_level = verbosity_to_log_level_map[max(0, min(2, args.verbosity))]
 
 logging.basicConfig(stream=sys.stdout, level=log_level)
 log = logging.getLogger('linkplayctl').getChild('main')
 
-log.debug("======  "+datetime.now().strftime("%Y-%m-%d %H:%M")+"  =====")
+log.info("======  "+datetime.now().strftime("%Y-%m-%d %H:%M")+"  Device: "+str(args.address)+"  =====")
 log.debug("Command Line: "+os.path.basename(sys.argv[0])+" "+" ".join(sys.argv[1:]))
 log.debug("Device address: '"+str(args.address)+"' Verbosity: "+str(args.verbosity)+
           ' Log Level: '+logging.getLevelName(log_level))
@@ -35,15 +35,21 @@ client = linkplayctl.Client(args.address, logger=logging.getLogger('linkplayctl'
 
 # First, find the best match for command among the API client's methods
 # Start by assuming all command words are part of the method name, then uncurry as needed
-cur_command_words = args.commands
+cur_command_words = list(args.commands)
 cur_arguments = []
+
+if "-" in " ".join(cur_command_words):
+    log.debug("Note: Hyphens in possible method names will be replaced with underscores")
 
 while True:
     if len(cur_command_words) < 1:
-        parser.print_help()
+        log.warn("Unable to extract a client method from "+str(args.commands)+". Aborting...")
+        print("ERROR - Unknown API command '"+" ".join(args.commands)+"'.  Use --help or README for help.")
         sys.exit(2)
 
     command_phrase = '_'.join(cur_command_words)
+    if "-" in command_phrase:
+        command_phrase = command_phrase.replace("-", "_")
     log.debug("Searching for '" + command_phrase + "' method in API client attributes...")
     if hasattr(client, command_phrase):
         break

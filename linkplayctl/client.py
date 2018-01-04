@@ -42,7 +42,7 @@ class Client:
             raise linkplayctl.APIException("Failed to reboot: Status code="+str(response.status_code))
         return response.content.decode("utf-8")
 
-    def reboot_quiet(self):
+    def reboot_silent(self):
         """Reboot the device quietly, i.e., without boot jingle"""
         t0 = time.time()
         self._logger.info("Requesting quiet reboot...")
@@ -54,7 +54,7 @@ class Client:
             raise linkplayctl.APIException("Failed to set volume before quiet reboot")
         self._logger.debug("Starting reboot...")
         self._reboot()
-        sleep_length = 45
+        sleep_length = 60  # 60 seconds is minimum--anything less causes device to hang on subsequent calls (e.g. info)
         self._logger.debug("Sleeping "+str(sleep_length)+" seconds while device reboots...")
         time.sleep(sleep_length)
         self._logger.debug("Restoring previous volume '" + str(old_volume) + "'")
@@ -63,9 +63,9 @@ class Client:
         self._logger.debug("Quiet reboot complete.  Elapsed time: "+str(elapsed_time)+"ms")
         return "OK"
 
-    def quiet_reboot(self):
-        """Alias for reboot_quiet()"""
-        return self.reboot_quiet()
+    def silent_reboot(self):
+        """Alias for reboot_silent()"""
+        return self.reboot_silent()
 
     def shutdown(self):
         """Shutdown the device immediately"""
