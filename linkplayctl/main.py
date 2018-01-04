@@ -30,8 +30,9 @@ logging.basicConfig(stream=sys.stdout, level=log_level)
 log = logging.getLogger('linkplayctl').getChild('main')
 
 git_version = subprocess.check_output(["git", "describe", "--long", "--always", "--dirty"]).strip().decode("utf-8")
+git_version = "------" if git_version.startswith("fatal:") else git_version
 full_version = linkplayctl.__version__+" (git "+git_version+")"
-log.info("======   "+datetime.now().strftime("%Y-%m-%d %H:%M")+"  Device: "+str(args.address)+"  v"+full_version+"  =====")
+log.info("======   "+datetime.now().strftime("%Y-%m-%d %H:%M")+"  Device: "+str(args.address)+"  v"+full_version+"   =====")
 log.debug("Command Line: "+os.path.basename(sys.argv[0])+" "+" ".join(sys.argv[1:]))
 log.debug("Linkplayctl "+full_version+"  Python "+platform.python_version()+"  Requests "+requests.__version__)
 log.debug("Device address: '"+str(args.address)+"' Verbosity: "+str(args.verbosity)+
