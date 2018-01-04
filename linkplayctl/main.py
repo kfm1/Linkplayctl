@@ -37,7 +37,7 @@ log.debug("Device address: '"+str(args.address)+"' Verbosity: "+str(args.verbosi
 client = linkplayctl.Client(args.address, logger=logging.getLogger('linkplayctl').getChild('client'))
 
 # Some versions of urllib3 emit too much noise at the INFO log level:
-if log_level < logging.DEBUG:
+if log_level > logging.DEBUG:
     logging.getLogger("urllib3").setLevel(logging.WARNING)
 
 
