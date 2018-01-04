@@ -27,6 +27,7 @@ logging.basicConfig(stream=sys.stdout, level=log_level)
 log = logging.getLogger('linkplayctl').getChild('main')
 
 log.debug("======  "+datetime.now().strftime("%Y-%m-%d %H:%M")+"  =====")
+log.debug("Command Line: "+os.path.basename(sys.argv[0])+" "+" ".join(sys.argv[1:]))
 log.debug("Device address: '"+str(args.address)+"' Verbosity: "+str(args.verbosity)+
           ' Log Level: '+logging.getLevelName(log_level))
 
