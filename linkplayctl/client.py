@@ -40,7 +40,7 @@ class Client:
         response = self._send("reboot")
         if response.status_code != 200:
             raise linkplayctl.APIException("Failed to reboot: Status code="+str(response.status_code))
-        return response.conent.decode("utf-8")
+        return response.content.decode("utf-8")
 
     def reboot_quiet(self):
         """Reboot the device quietly, i.e., without boot jingle"""
@@ -176,8 +176,8 @@ class Client:
         return response.json()
 
     def wifi_status(self):
-        raise NotImplementedError
         """Get the current status of the WiFi connection"""
+        raise NotImplementedError
         self._logger.info("Retrieving WiFi connection status...")
         response = self._send("wlanGetConnectState")
         return str(response.content)
@@ -334,8 +334,8 @@ class Client:
         if mode is None:
             self._logger.info("Retrieving current equalizer setting...")
             inverse_eq_modes = {v: k for k, v in self._equalizer_modes.items()}
+            value = self._send("getEqualizer").json()
             try:
-                value = self._send("getEqualizer").json()
                 mode = inverse_eq_modes[value]
             except KeyError:
                 raise AttributeError("Received unknown equalizer mode value '"+str(value)+"'")
@@ -350,7 +350,7 @@ class Client:
         self._logger.info("Equalizer mode '" + str(mode)+"' maps to value "+str(mode_value))
         response = self._send("setPlayerCmd:equalizer:"+str(mode_value))
         if response.status_code != 200:
-            raise linkplayctl.APIException("Failed to set equalizer to mode '"+str(mode)+"' (value '"+mode_value+"'")
+            raise linkplayctl.APIException("Failed to set equalizer to mode '"+str(mode)+"' (value '"+str(mode_value)+"'")
         return response.content.decode("utf-8")
 
     def equalizer_modes(self):

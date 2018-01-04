@@ -3,5 +3,5 @@
 
 SCRIPT=$(readlink -f "$0")
 SCRIPTPATH=$(dirname "$SCRIPT")
-python "${SCRIPTPATH}/../linkplayctl/main.py" $@
+python3 "${SCRIPTPATH}/../linkplayctl/main.py" $@
 
