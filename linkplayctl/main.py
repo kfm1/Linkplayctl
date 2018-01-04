@@ -29,11 +29,11 @@ log_level = verbosity_to_log_level_map[max(0, min(2, args.verbosity))]
 logging.basicConfig(stream=sys.stdout, level=log_level)
 log = logging.getLogger('linkplayctl').getChild('main')
 
-log.info("======   "+datetime.now().strftime("%Y-%m-%d %H:%M")+"  Device: "+str(args.address)+"   =====")
+git_version = subprocess.check_output(["git", "describe", "--long", "--always", "--dirty"]).strip().decode("utf-8")
+full_version = linkplayctl.__version__+" (git "+git_version+")"
+log.info("======   "+datetime.now().strftime("%Y-%m-%d %H:%M")+"  Device: "+str(args.address)+"  v"+full_version+"  =====")
 log.debug("Command Line: "+os.path.basename(sys.argv[0])+" "+" ".join(sys.argv[1:]))
-git_version = subprocess.check_output(["git", "describe", "--long", "--always"]).strip().decode("utf-8")
-log.debug("Linkplayctl "+linkplayctl.__version__+" (git "+git_version+")  "+
-          "Python "+platform.python_version()+"  Requests "+requests.__version__)
+log.debug("Linkplayctl "+full_version+"  Python "+platform.python_version()+"  Requests "+requests.__version__)
 log.debug("Device address: '"+str(args.address)+"' Verbosity: "+str(args.verbosity)+
           ' Log Level: '+logging.getLevelName(log_level))
 
