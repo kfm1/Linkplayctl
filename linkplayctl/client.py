@@ -54,8 +54,8 @@ class Client:
             raise linkplayctl.APIException("Failed to set volume before quiet reboot")
         self._logger.debug("Starting reboot...")
         self._reboot()
-        self._logger.debug("Sleeping 40 seconds while device reboots...")
-        time.sleep(40)
+        self._logger.debug("Sleeping 1 minute while device reboots...")
+        time.sleep(45)
         self._logger.debug("Restoring previous volume '" + str(old_volume) + "'")
         self._volume(old_volume)
         elapsed_time = "{:,}".format(round((time.time()-t0)*1000, 1))
@@ -434,7 +434,7 @@ class Client:
         self._logger.debug("Requesting '"+fragment+"'...")
         t0 = time.time()
         try:
-            response = requests.get(fragment)
+            response = requests.get(fragment, timeout=30)
             self.api_status_code = response.status_code
             elapsed = round((time.time()-t0)*1000, 1)
             self._logger.debug("Received response from device in "+str(elapsed)+"ms"+
