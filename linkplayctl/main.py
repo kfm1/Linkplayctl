@@ -2,6 +2,8 @@ import sys
 import os
 import argparse
 import logging
+import platform
+import requests
 from datetime import datetime
 
 try:
@@ -26,12 +28,18 @@ log_level = verbosity_to_log_level_map[max(0, min(2, args.verbosity))]
 logging.basicConfig(stream=sys.stdout, level=log_level)
 log = logging.getLogger('linkplayctl').getChild('main')
 
-log.info("======  "+datetime.now().strftime("%Y-%m-%d %H:%M")+"  Device: "+str(args.address)+"  =====")
+log.info("======   "+datetime.now().strftime("%Y-%m-%d %H:%M")+"  Device: "+str(args.address)+"   =====")
 log.debug("Command Line: "+os.path.basename(sys.argv[0])+" "+" ".join(sys.argv[1:]))
+log.debug("Linkplayctl "+linkplayctl.__version__+"  Python "+platform.python_version()+"  Requests "+requests.__version__)
 log.debug("Device address: '"+str(args.address)+"' Verbosity: "+str(args.verbosity)+
           ' Log Level: '+logging.getLevelName(log_level))
 
 client = linkplayctl.Client(args.address, logger=logging.getLogger('linkplayctl').getChild('client'))
+
+# Some versions of urllib3 emit too much noise at the INFO log level:
+if log_level < logging.DEBUG:
+    logging.getLogger("urllib3").setLevel(logging.WARNING)
+
 
 # First, find the best match for command among the API client's methods
 # Start by assuming all command words are part of the method name, then uncurry as needed
