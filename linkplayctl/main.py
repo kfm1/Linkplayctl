@@ -4,6 +4,7 @@ import argparse
 import logging
 import platform
 import requests
+import subprocess
 from datetime import datetime
 
 try:
@@ -30,7 +31,9 @@ log = logging.getLogger('linkplayctl').getChild('main')
 
 log.info("======   "+datetime.now().strftime("%Y-%m-%d %H:%M")+"  Device: "+str(args.address)+"   =====")
 log.debug("Command Line: "+os.path.basename(sys.argv[0])+" "+" ".join(sys.argv[1:]))
-log.debug("Linkplayctl "+linkplayctl.__version__+"  Python "+platform.python_version()+"  Requests "+requests.__version__)
+git_version = subprocess.check_output(["git", "describe", "--long", "--always"]).strip().decode("utf-8")
+log.debug("Linkplayctl "+linkplayctl.__version__+" (git "+git_version+")  "+
+          "Python "+platform.python_version()+"  Requests "+requests.__version__)
 log.debug("Device address: '"+str(args.address)+"' Verbosity: "+str(args.verbosity)+
           ' Log Level: '+logging.getLevelName(log_level))
 
