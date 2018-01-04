@@ -54,8 +54,9 @@ class Client:
             raise linkplayctl.APIException("Failed to set volume before quiet reboot")
         self._logger.debug("Starting reboot...")
         self._reboot()
-        self._logger.debug("Sleeping 1 minute while device reboots...")
-        time.sleep(45)
+        sleep_length = 45
+        self._logger.debug("Sleeping "+str(sleep_length)+" seconds while device reboots...")
+        time.sleep(sleep_length)
         self._logger.debug("Restoring previous volume '" + str(old_volume) + "'")
         self._volume(old_volume)
         elapsed_time = "{:,}".format(round((time.time()-t0)*1000, 1))
