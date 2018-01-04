@@ -2,6 +2,7 @@ import sys
 import os
 import argparse
 import logging
+from datetime import datetime
 
 try:
     sys.path.index(os.path.join(sys.path[0], os.pardir))
@@ -13,7 +14,7 @@ import linkplayctl
 if __name__ != '__main__':
     exit()
 
-parser = argparse.ArgumentParser(description='Control a linkplay device.', usage='%(prog)s [--help] address command')
+parser = argparse.ArgumentParser(description='Control a linkplay device.', usage='%(prog)s [--help] [-v...] address command')
 parser.add_argument("-v", "--verbosity", action="count", default=0, help="increase logging verbosity")
 parser.add_argument('address', type=str, help='address (hostname or ip) of device')
 parser.add_argument('commands', nargs='+', metavar="command", help='one or more words to send to device')
@@ -25,6 +26,7 @@ log_level = verbosity_to_log_level_map[max(0, min(2, args.verbosity))]
 logging.basicConfig(stream=sys.stdout, level=log_level)
 log = logging.getLogger('linkplayctl').getChild('main')
 
+log.debug("======  "+datetime.now().strftime("%Y-%m-%d %H:%M")+"  =====")
 log.debug("Device address: '"+str(args.address)+"' Verbosity: "+str(args.verbosity)+
           ' Log Level: '+logging.getLevelName(log_level))
 
