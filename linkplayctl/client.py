@@ -1,6 +1,7 @@
 import logging
 import time
 import requests
+import math
 import linkplayctl
 
 
@@ -203,12 +204,17 @@ class Client:
         response = self._send("getPlayerStatus")
         return response.json()
 
-    def player_mode(self):
-        """Get the current payer mode, such as airplay or dlna"""
-        self._logger.info("Retrieving player mode (e.g., airplay, dlna, etc.)...")
-        inverse_player_modes = {v: k for k, v in self._player_modes.items()}
-        mode = int(self._player_info().get('mode'))
-        return inverse_player_modes.get(mode)
+    def player_mode(self, mode=None):
+        """Get or set the current payer mode, such as airplay or dlna"""
+        if mode is None:
+            self._logger.info("Retrieving player mode (e.g., airplay, dlna, etc.)...")
+            inverse_player_modes = {v: k for k, v in self._player_modes.items()}
+            mode = int(self._player_info().get('mode'))
+            return inverse_player_modes.get(mode)
+        self._logger.info("Setting player mode to '"+str(mode)+"'... [NOT IMPLEMENTED]")
+        self._logger.debug("TODO: Figure out format for command switchmode.") # TODO: switchmode, see iEast docs
+        raise NotImplementedError
+        #return self._send("switchmode:"+str(mode))
 
     def player_status(self):
         self._logger.info("Retrieving player status (e.g., play, pause, etc.)...")
@@ -240,6 +246,29 @@ class Client:
         self._logger.info("Skipping forward to next media track...")
         return self._send("setPlayerCmd:next").content.decode("utf-8")
 
+    def seek(self, val):
+        val = int(val)
+        return self.back(val) if val < 0 else self.forward(val)
+
+    def back(self, val=10):
+        self._logger.info("Rewinding playback by '" + str(val) + "' seconds...")
+        # return self._seek(int(math.floor(self._position()/1000 - int(val))))
+        return self._position(int(self._position() - int(val*1000)))
+
+    def forward(self, val=10):
+        self._logger.info("Fast-forwarding playback by '" + str(val) + "' seconds...")
+        #return self._seek(int(math.floor(self._position() / 1000 + int(val))))
+        return self._position(int(self._position() + int(val * 1000)))
+
+    def _seek(self, val):
+        totlen_ms = int(self._length())
+        newpos_ms = int(val)*1000
+        newpos_ms = max(0, min(totlen_ms, newpos_ms))
+        newpos = math.floor(newpos_ms)
+        self._logger.debug("Seeking to " + str(newpos) + " second mark in media "+
+                           "(position "+str(newpos_ms)+" of "+str(totlen_ms)+"...")
+        return self._send("setPlayerCmd:seek:"+str(newpos)).content.decode("utf-8")
+
     ''' Media Info '''
 
     def title(self):
@@ -254,12 +283,27 @@ class Client:
         self._logger.info("Retrieving current media artist...")
         return self._dehexify(self._player_info().get('Artist'))
 
-    def position(self):
-        self._logger.info("Retrieving player's current position in media...")
-        return int(self._player_info().get('curpos'))
+    def position(self, newpos_ms=None):
+        if newpos_ms is None:
+            self._logger.info("Retrieving player's current position in media...")
+        else:
+            self._logger.info("Setting player's position in media to "+str(newpos_ms)+"...")
+        return self._position(newpos_ms)
+
+    def _position(self, newpos_ms=None):
+        if newpos_ms is None:
+            return int(self._player_info().get('curpos'))
+        totlen_ms = int(self._length())
+        newpos_ms = max(0, min(totlen_ms, int(newpos_ms)))
+        newpos = math.floor(newpos_ms / 1000)
+        self._logger.debug("Setting position in media to "+str(newpos_ms)+" of "+str(totlen_ms)+"ms...")
+        return self._send("setPlayerCmd:seek:"+str(newpos)).content.decode("utf-8")
 
     def length(self):
         self._logger.info("Retrieving total length of current media...")
+        return self._length()
+
+    def _length(self):
         return int(self._player_info().get('totlen'))
 
     def _dehexify(self, hex_string):
