@@ -29,9 +29,13 @@ log_level = verbosity_to_log_level_map[max(0, min(2, args.verbosity))]
 logging.basicConfig(stream=sys.stdout, level=log_level)
 log = logging.getLogger('linkplayctl').getChild('main')
 
-git_version = subprocess.check_output(["git", "describe", "--long", "--always", "--dirty"]).strip().decode("utf-8")
-git_version = "------" if git_version.startswith("fatal:") else git_version
-full_version = linkplayctl.__version__+" (git "+git_version+")"
+try:
+    git_version = subprocess.check_output(["git", "describe", "--long", "--always", "--dirty"],
+                                          cwd=os.path.dirname(os.path.realpath(__file__))).strip().decode("utf-8")
+except subprocess.CalledProcessError:
+    git_version = "------"
+
+full_version = linkplayctl.__version__+"  (git "+git_version+")"
 log.info("======   "+datetime.now().strftime("%Y-%m-%d %H:%M")+"  Device: "+str(args.address)+"  v"+full_version+"   =====")
 log.debug("Command Line: "+os.path.basename(sys.argv[0])+" "+" ".join(sys.argv[1:]))
 log.debug("Linkplayctl "+full_version+"  Python "+platform.python_version()+"  Requests "+requests.__version__)
