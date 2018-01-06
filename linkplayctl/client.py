@@ -247,26 +247,24 @@ class Client:
         return self._send("setPlayerCmd:next").content.decode("utf-8")
 
     def seek(self, val):
-        val = int(val)
-        return self.back(val) if val < 0 else self.forward(val)
+        self._logger.info("Seeking to '" + str(val) + "' second mark in media...")
+        return self._position(int(math.floor(float(val)*1000)))
 
     def back(self, val=10):
         self._logger.info("Rewinding playback by '" + str(val) + "' seconds...")
-        # return self._seek(int(math.floor(self._position()/1000 - int(val))))
-        return self._position(int(self._position() - int(val*1000)))
+        return self._position(int(self._position() - int(math.floor(float(val)*1000))))
 
     def forward(self, val=10):
         self._logger.info("Fast-forwarding playback by '" + str(val) + "' seconds...")
-        #return self._seek(int(math.floor(self._position() / 1000 + int(val))))
-        return self._position(int(self._position() + int(val * 1000)))
+        return self._position(int(self._position() + int(math.floor(float(val)*1000))))
 
     def _seek(self, val):
         totlen_ms = int(self._length())
-        newpos_ms = int(val)*1000
+        newpos_ms = int(math.floor(float(val)*1000))
         newpos_ms = max(0, min(totlen_ms, newpos_ms))
-        newpos = math.floor(newpos_ms)
+        newpos = math.floor(newpos_ms/1000)
         self._logger.debug("Seeking to " + str(newpos) + " second mark in media "+
-                           "(position "+str(newpos_ms)+" of "+str(totlen_ms)+"...")
+                           "(position "+str(newpos_ms)+" of "+str(totlen_ms)+")...")
         return self._send("setPlayerCmd:seek:"+str(newpos)).content.decode("utf-8")
 
     ''' Media Info '''
@@ -293,10 +291,11 @@ class Client:
     def _position(self, newpos_ms=None):
         if newpos_ms is None:
             return int(self._player_info().get('curpos'))
+        self._logger.debug("Checking total media length to ensure new position is not past the end of the media...")
         totlen_ms = int(self._length())
         newpos_ms = max(0, min(totlen_ms, int(newpos_ms)))
         newpos = math.floor(newpos_ms / 1000)
-        self._logger.debug("Setting position in media to "+str(newpos_ms)+" of "+str(totlen_ms)+"ms...")
+        self._logger.debug("Setting player media position to "+str(newpos_ms)+" (of "+str(totlen_ms)+" ms)...")
         return self._send("setPlayerCmd:seek:"+str(newpos)).content.decode("utf-8")
 
     def length(self):
@@ -483,7 +482,7 @@ class Client:
             self.api_status_code = response.status_code
             elapsed = round((time.time()-t0)*1000, 1)
             self._logger.debug("Received response from device in "+str(elapsed)+"ms"+
-                               " [status code '"+str(self.api_status_code)+"']")
+                               " with status code '"+str(self.api_status_code)+"'")
             return response
         except requests.exceptions.RequestException as e:
             raise linkplayctl.ConnectionException("Could not connect to '" + str(self._address) + "': " + str(e))
