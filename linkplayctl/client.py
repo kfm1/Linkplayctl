@@ -19,6 +19,7 @@ class Client:
                               'http-max': 29, 'alarm': 30, 'line-in': 40, 'bluetooth': 41, 'ext-local': 42,
                               'optical': 43, 'line-in-max': 49, 'mirror': 50, 'talk': 60, 'slave': 99}
         self._auth_types = {'off': 0, 'psk': 1}
+        self._session = None
 
     ''' Basic Information & Commands '''
 
@@ -478,7 +479,9 @@ class Client:
         self._logger.debug("Requesting '"+fragment+"'...")
         t0 = time.time()
         try:
-            response = requests.get(fragment, timeout=30)
+            if not self._session:
+                self._session = requests.session()
+            response = self._session.get(fragment, timeout=30)
             self.api_status_code = response.status_code
             elapsed = round((time.time()-t0)*1000, 1)
             self._logger.debug("Received response from device in "+str(elapsed)+"ms"+
