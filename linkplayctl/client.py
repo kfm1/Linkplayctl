@@ -148,7 +148,7 @@ class Client:
     def wifi_power(self):
         """Get the current power of the wifi radio"""
         self._logger.info("Retrieving current WiFi radio power... [NOT IMPLEMENTED]")
-        raise NotImplementedError
+        raise NotImplementedError("Command 'wifi_power' is not implemented yet")
 
     def wifi_mac(self):
         """Get the MAC of the wifi radio"""
@@ -180,7 +180,7 @@ class Client:
 
     def wifi_status(self):
         """Get the current status of the WiFi connection"""
-        raise NotImplementedError
+        raise NotImplementedError("Command 'wifi_status' is not implemented yet")
         self._logger.info("Retrieving WiFi connection status...")
         response = self._send("wlanGetConnectState")
         return str(response.content)
@@ -214,7 +214,7 @@ class Client:
             return inverse_player_modes.get(mode)
         self._logger.info("Setting player mode to '"+str(mode)+"'... [NOT IMPLEMENTED]")
         self._logger.debug("TODO: Figure out format for command switchmode.") # TODO: switchmode, see iEast docs
-        raise NotImplementedError
+        raise NotImplementedError("Setting player_mode is not implemented yet")
         #return self._send("switchmode:"+str(mode))
 
     def player_status(self):
@@ -423,7 +423,7 @@ class Client:
     def prompt_language(self, value=None):
         """Set the prompt language [NOT IMPLEMENTED]"""
         self._logger.info("Setting voice prompts language... [NOT IMPLEMENTED]")
-        raise NotImplementedError
+        raise NotImplementedError("Command 'prompt_language' is not implemented yet")
 
     ''' Firmware Updating '''
 
