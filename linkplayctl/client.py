@@ -20,6 +20,8 @@ class Client:
                               'optical': 43, 'line-in-max': 49, 'mirror': 50, 'talk': 60, 'slave': 99}
         self._loop_modes = {'repeat:off:shuffle:off': -1, 'repeat:all:shuffle:off': 0,  'repeat:one:shuffle:off': 1,
                             'repeat:off:shuffle:on':   3, 'repeat:all:shuffle:on':  2}
+        self._wifi_statuses = {'connecting': 'PROCESS', 'error-password': 'PAIRFAIL',
+                               'disconnected': 'FAIL', 'connected': 'ok'}
         self._auth_types = {'off': 0, 'psk': 1}
         self._session = None
 
@@ -183,10 +185,13 @@ class Client:
 
     def wifi_status(self):
         """Get the current status of the WiFi connection"""
-        raise NotImplementedError("Command 'wifi_status' is not implemented yet")
         self._logger.info("Retrieving WiFi connection status...")
-        response = self._send("wlanGetConnectState")
-        return str(response.content)
+        inverse_wifi_statuses = {v: k for k, v in self._wifi_statuses.items()}
+        response = self._send("wlanGetConnectState").content.decode("utf-8")
+        try:
+            return inverse_wifi_statuses[response]
+        except KeyError:
+            raise linkplayctl.APIException("Received unrecognized wifi status: '"+str(response)+"'")
 
     def wifi_off(self):
         """Disable the WiFi radio"""
@@ -207,17 +212,6 @@ class Client:
         """Internal method to retrieve player subsystem information."""
         response = self._send("getPlayerStatus")
         return response.json()
-
-    def player_mode(self, mode=None):
-        """Get or set the current payer mode, such as airplay or dlna"""
-        if mode is None:
-            self._logger.info("Retrieving player mode (e.g., airplay, dlna, etc.)...")
-            inverse_player_modes = {v: k for k, v in self._player_modes.items()}
-            mode = int(self._player_info().get('mode'))
-            return inverse_player_modes.get(mode)
-        self._logger.info("Setting player mode to '"+str(mode)+"'... [NOT IMPLEMENTED]")
-        self._logger.debug("TODO: Figure out format for command switchmode.") # TODO: switchmode, see iEast docs
-        raise NotImplementedError("Setting player_mode is not implemented yet")
 
     def player_status(self):
         self._logger.info("Retrieving player status (e.g., play, pause, etc.)...")
@@ -428,6 +422,37 @@ class Client:
 
     # TODO: See also player_mode, is related to sources
 
+    def source(self, mode=None):
+        """Get the current player source, such as airplay, dlna, wiimu (playlist), bluetooth"""
+        if mode is None:
+            self._logger.info("Retrieving current player source (e.g., airplay, dlna, etc.)...")
+            inverse_player_modes = {v: k for k, v in self._player_modes.items()}
+            mode = int(self._player_info().get('mode'))
+            return inverse_player_modes.get(mode)
+        self._logger.info("Setting player source to '"+str(mode)+"'... [NOT IMPLEMENTED]")
+        raise NotImplementedError("Method source(mode) is not implemented. Try bluetooth(), aux(), etc.")
+
+    def playlist(self, uri):
+        """Set player source to the playlist at the provided uri [PROBABLY NOT WORKING ON SOME DEVICES]"""
+        self._logger.info("Setting player playlist to '"+str(uri)+"'...")
+        self._logger.info("Note:  This call apparently does not work on some devices.  Try play(uri) instead.")
+        return self._send("setPlayerCmd:playlist:"+uri).content.decode("utf-8")  # Previously: ":1" on end.
+
+    def bluetooth(self):
+        """Set player source to bluetooth"""
+        self._logger.info("Setting player source to bluetooth...")
+        return self._send("setPlayerCmd:switchmode:bluetooth").content.decode("utf-8")
+
+    def aux(self):
+        """Set player source to AUX/line-in)"""
+        self._logger.info("Setting player source to AUX/line-in...")
+        return self._send("setPlayerCmd:switchmode:line-in").content.decode("utf-8")
+
+    def linein(self):
+        return self.aux()
+
+    ''' Presets '''
+
     def preset(self, number, uri=None):
         """If optional uri is provided, the numbered preset will be set to that uri. If no uri, then load preset by #"""
         if uri is None:
@@ -444,12 +469,6 @@ class Client:
         except (ValueError, linkplayctl.APIException):
             raise linkplayctl.APIException("Preset number must be an integer between 1 and 6, inclusive")
         return number
-
-    def playlist(self, uri):
-        """Set player source to the playlist at the provided uri [PROBABLY NOT WORKING ON SOME DEVICES]"""
-        self._logger.info("Setting player playlist to '"+str(uri)+"'...")
-        self._logger.info("Note:  This call apparently does not work on some devices.  Try play(uri) instead.")
-        return self._send("setPlayerCmd:playlist:"+uri).content.decode("utf-8")  # Previous: ":1" on end
 
     ''' Equalizer Control '''
 

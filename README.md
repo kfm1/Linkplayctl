@@ -21,19 +21,23 @@ Linkplayctl requires Python 3 and these modules:
 If your environment does not have the requests module already, the simplest way to acquire it is to install pip.  On Ubuntu, try
 ```sudo apt-get install python3-pip```  or similar.
 
+To get the linkplayctl module, download from github or clone:
+```git clone ```
 
-### Usage
+
+### Example Usage
 
 Python:
 
 ```
 import Linkplayctl
 
-client = Linkplayctl.Client("192.168.1.0")  # Address of the linkplay device
-client.reboot()             # Reboot device
-client.volume_up()          # Increase volume by one step
-client.equalizer("jazz")    # Set the equalizer mode to jazzy
-client.rewind(10)           # Rewind playback by 10 seconds
+client = Linkplayctl.Client("192.168.1.55") # Address of the linkplay device
+client.reboot()                             # Reboot device
+client.play("http://path/to/playlist")      # Play streaming playlist
+client.volume_up()                          # Increase volume by one step
+client.equalizer("jazz")                    # Set the equalizer mode to jazzy
+client.rewind(10)                           # Rewind playback by 10 seconds
 ...
 
 ```
@@ -41,19 +45,21 @@ client.rewind(10)           # Rewind playback by 10 seconds
 Command Line:
 
 ```
-$> bin/linkplayctl 192.168.1.0 reboot
+$> bin/linkplayctl 192.168.1.55 reboot
 OK
-$> bin/linkplayctl 192.168.1.0 volume up
+$> bin/linkplayctl 192.168.1.55 play "http://path/to/playlist"
 OK
-$> bin/linkplayctl 192.168.1.0 equalizer jazz
+$> bin/linkplayctl 192.168.1.55 volume up
 OK
-$> bin/linkplayctl 192.168.1.0 rewind 10
+$> bin/linkplayctl 192.168.1.55 equalizer jazz
+OK
+$> bin/linkplayctl 192.168.1.55 rewind 10
 OK
 ...
 
 ```
 
-To date, Linkplayctl implements about 60 commands, which are implemented and documented as methods in the Client class.  
+To date, Linkplayctl implements about 70 commands, which are implemented and documented as methods in the Client class.  
 
 
 
@@ -61,7 +67,8 @@ To date, Linkplayctl implements about 60 commands, which are implemented and doc
 
 ### Acknowledgments
 
-* https://github.com/AndersFluur/IEastMediaRoom for the API description
+* https://github.com/AndersFluur/IEastMediaRoom for API description
+* https://marketplace.fibaro.com/profiles/albert-walczyk for API
 
 
 
