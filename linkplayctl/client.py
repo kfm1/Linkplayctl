@@ -28,7 +28,7 @@ class Client:
     ''' Basic Information & Commands '''
 
     def info(self):
-        """Retrieve a combined list of unprocessed device and player information. See device_info() and player_info()"""
+        """Retrieve a combined list of unprocessed device and player information"""
         self._logger.info("Retrieving combined device and player info...")
         device_status = self._device_info()
         player_status = self._player_info()
@@ -37,22 +37,23 @@ class Client:
         return status
 
     def reboot(self):
-        """Reboot the device immediately (non-blocking)"""
+        """Request a device reboot"""
         self._logger.info("Requesting reboot...")
         return self._reboot()
 
     def _reboot(self):
-        """Internal, nonblocking method for performing reboots"""
+        """Internal, non-blocking method for performing reboots"""
         response = self._send("reboot")
-        if response.status_code != 200:
-            raise linkplayctl.APIException("Failed to reboot: Status code="+str(response.status_code))
+        if response.status_code != 200 or response.content.decode("utf-8") != "OK":
+            raise linkplayctl.APIException("Failed to reboot: "+
+                                           "Status "+str(response.status_code)+" Content: "+response.content)
         return response.content.decode("utf-8")
 
     def reboot_silent(self):
         """Reboot the device quietly, i.e., without boot jingle. Returns when complete, usually ~60 seconds."""
         t0 = time.time()
         self._logger.info("Requesting quiet reboot...")
-        self._logger.info("Note: This blocking call may take ~60 seconds to return.")
+        self._logger.info("Note: This blocking call may take ~60 seconds to return")
         old_volume = self._volume()
         self._logger.debug("Saving current volume '"+str(old_volume)+"' and setting volume to 1...")
         self._volume(1)
@@ -61,7 +62,7 @@ class Client:
             raise linkplayctl.APIException("Failed to set volume before quiet reboot")
         self._logger.debug("Starting reboot...")
         self._reboot()
-        sleep_length = 60  # 60 seconds is minimum--anything less causes device to hang on subsequent calls (e.g. info)
+        sleep_length = 60  # 60 seconds is minimum--anything less causes device to hang on subsequent calls
         self._logger.debug("Sleeping "+str(sleep_length)+" seconds while device reboots...")
         time.sleep(sleep_length)
         self._logger.debug("Restoring previous volume '" + str(old_volume) + "'")
@@ -75,7 +76,7 @@ class Client:
         return self.reboot_silent()
 
     def shutdown(self):
-        """Shutdown the device immediately"""
+        """Request an immediate device shutdown"""
         self._logger.info("Requesting shutdown...")
         response = self._send("getShutdown")
         if response.status_code != 200:
@@ -114,7 +115,7 @@ class Client:
         return response.content.decode("utf-8")
 
     def group(self):
-        """Get the name of the player group to which the device belongs"""
+        """Get the name of the multiroom group to which the device belongs"""  # TODO: Is this same as multiroom master?
         self._logger.info("Retrieving device group name...")
         return self._device_info().get("GroupName")
 
@@ -201,10 +202,10 @@ class Client:
             raise linkplayctl.APIException("Failed to disable wifi: Status code="+str(response.status_code))
         return response.content.decode("utf-8")
 
-    ''' Player Status '''
+    ''' Player Status & Commands '''
 
     def player_info(self):
-        """Get the status of the player subsystem, such as current title, volume, etc."""
+        """Get a list of player subsystem information, such as current title, volume, etc."""
         self._logger.info("Retrieving player information...")
         return self._player_info()
 
@@ -213,11 +214,11 @@ class Client:
         response = self._send("getPlayerStatus")
         return response.json()
 
-    def player_status(self):
-        self._logger.info("Retrieving player status (e.g., play, pause, etc.)...")
+    def transport(self):
+        """Get current transport status, e.g., play, pause, etc...."""
+        self._logger.info("Retrieving current transport status, e.g., play, pause, stop.")
+        self._logger.info("Note: Devices report incorrect transport status for some streams, such as airplay/dlna")
         return self._player_info().get('status')
-
-    ''' Player Commands '''
 
     def play(self, uri=""):
         """Start playback of track/playlist at uri, or current media if none"""
