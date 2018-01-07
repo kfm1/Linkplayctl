@@ -105,7 +105,7 @@ class Client:
         self._logger.info("Setting device name to '"+str(name)+"'...")
         if not isinstance(name, str) or not name:
             raise AttributeError("Device name must be a non-empty string")
-        response = self._send("setDeviceName:"+name) # TODO: ToHex??
+        response = self._send("setDeviceName:"+name)
         if response.status_code != 200:
             raise linkplayctl.APIException("Failed to set device name to '"+name+"'")
         return response.content.decode("utf-8")
@@ -170,7 +170,7 @@ class Client:
             raise linkplayctl.APIException("Authentication type must be one of ["+", ".join(self._auth_types.keys())+"]")
         if auth_value and not new_pass:
             raise linkplayctl.APIException("Authentication type '"+str(auth_type)+"' requires a non-empty password")
-        response = self._send("setNetwork:"+str(auth_value)+":"+(str(new_pass) if new_pass is not None else "")) # TODO: Pass to hex
+        response = self._send("setNetwork:"+str(auth_value)+":"+str(new_pass) if new_pass is not None else "")
         self._logger.debug("Authentication set.  Device is rebooting...")
         return response.content.decode("utf-8")
 
@@ -380,16 +380,14 @@ class Client:
         if value is None:
             return int(self._player_info().get("vol"))
         try:
-            if isinstance(value, str) and value.startswith('+'):
-                new_volume = min(100, self._volume()+int(value[1:]))
-                self._logger.debug("Increasing volume "+str(value)+" to "+str(new_volume))
-            elif isinstance(value, str) and value.startswith('-'):
-                new_volume = max(0, self._volume()-int(value[1:]))
-                self._logger.debug("Decreasing volume "+str(value)+" to "+str(new_volume))
+            if isinstance(value, str) and (value.startswith('+') or value.startswith('-')):
+                self._logger.debug("Adjusting volume by " + str(value) + ". Getting old volume...")
+                new_volume = max(0, min(100, self._volume()+int(math.floor(float(value)))))
+                self._logger.debug("Adjusting volume "+str(value)+" to "+str(new_volume)+"...")
             else:
-                new_volume = min(100, max(0, int(value)))
+                new_volume = max(0, min(100, int(math.floor(float(value)))))
                 self._logger.debug("Setting volume to " + str(int(new_volume)))
-        except:
+        except ValueError:
             raise AttributeError("Volume must be between 0 and 100 or -100 to +100, inclusive, not '"+str(value)+"'")
         response = self._send("setPlayerCmd:vol:" + str(new_volume))
         if response.status_code != 200:
@@ -427,15 +425,13 @@ class Client:
 
     ''' Source Control '''
 
+    # TODO: See also player_mode, is related to sources
+
     def preset(self, number, uri=None):
         raise NotImplementedError("Presets not implemented yet")
 
     def playlist(self, uri=None):
         raise NotImplementedError("Setting playlist not implemented yet")
-
-    # See also player_mode, is related to sources
-
-
 
     ''' Equalizer Control '''
 
@@ -469,6 +465,11 @@ class Client:
 
     ''' Voice Prompts & Jingles '''
 
+    def prompt(self):
+        """Retrieve the voice prompt boolean--not implemented because API command is not known"""
+        self._logger.info("Retrieving voice prompts setting...")
+        raise NotImplementedError("Prompt() is not implemented yet.")
+
     def prompt_on(self):
         """Enable voice prompts and notifications"""
         self._logger.info("Turning voice prompts on...")
@@ -486,7 +487,10 @@ class Client:
         return response.content.decode("utf-8")
 
     def prompt_language(self, value=None):
-        """Set the prompt language [NOT IMPLEMENTED]"""  # TODO: ToHex?
+        if value is None:
+            self._logger.info("Getting voice prompts language...")
+            return self._device_info().get('language')
+        """Get or set the prompt language [SETTER NOT IMPLEMENTED]"""
         self._logger.info("Setting voice prompts language... [NOT IMPLEMENTED]")
         raise NotImplementedError("Command 'prompt_language' is not implemented yet")
 
@@ -544,16 +548,17 @@ class Client:
         self._logger.debug("Requesting '"+fragment+"'...")
         t0 = time.time()
         try:
-            if not self._session:
-                self._session = requests.session()
+            self._session = self._session if self._session else requests.session()
             response = self._session.get(fragment, timeout=30)
             self.api_status_code = response.status_code
             elapsed = round((time.time()-t0)*1000, 1)
-            self._logger.debug("Received response from device in "+str(elapsed)+"ms"+
-                               " with status code '"+str(self.api_status_code)+"'")
+            self._logger.debug("Received response from device in "+str(elapsed)+"ms:"+
+                               " Status: "+str(self.api_status_code)+" Length: "+str(len(response.content))+" bytes")
             return response
         except requests.exceptions.RequestException as e:
             raise linkplayctl.ConnectionException("Could not connect to '" + str(self._address) + "': " + str(e))
+        except KeyboardInterrupt:
+            raise linkplayctl.ConnectionException("Connection interrupted")
 
     def _dehexify(self, hex_string):
         try:
@@ -563,6 +568,6 @@ class Client:
 
     def _hexify(self, string):
         try:
-            return " ".join("{:02x}".format(c) for c in string.encode())
+            return "".join("{:02x}".format(c) for c in string.encode())
         except ValueError:
             return string
