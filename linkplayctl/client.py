@@ -35,21 +35,22 @@ class Client:
         return status
 
     def reboot(self):
-        """Reboot the device immediately"""
+        """Reboot the device immediately (non-blocking)"""
         self._logger.info("Requesting reboot...")
         return self._reboot()
 
     def _reboot(self):
-        """Internal method for performing reboots"""
+        """Internal, nonblocking method for performing reboots"""
         response = self._send("reboot")
         if response.status_code != 200:
             raise linkplayctl.APIException("Failed to reboot: Status code="+str(response.status_code))
         return response.content.decode("utf-8")
 
     def reboot_silent(self):
-        """Reboot the device quietly, i.e., without boot jingle"""
+        """Reboot the device quietly, i.e., without boot jingle. Returns when complete, usually ~60 seconds."""
         t0 = time.time()
         self._logger.info("Requesting quiet reboot...")
+        self._logger.info("Note: This blocking call may take ~60 seconds to return.")
         old_volume = self._volume()
         self._logger.debug("Saving current volume '"+str(old_volume)+"' and setting volume to 1...")
         self._volume(1)
@@ -225,9 +226,9 @@ class Client:
     ''' Player Commands '''
 
     def play(self, uri=""):
-        """Start playback of current media""" # TODO: Need to remove colon if no uri?  Also, accept playlist?
-        self._logger.info("Beginning playback"+((" of '"+str(uri)+"'") if uri else "")+"...")
-        return self._send("setPlayerCmd:play:"+str(uri)).content.decode("utf-8")
+        """Start playback of track/playlist at uri, or current media if none"""
+        self._logger.info("Starting playback of "+(("'"+str(uri)+"'") if uri else "current media")+"...")
+        return self._send("setPlayerCmd:play"+(":"+str(uri) if uri else "")).content.decode("utf-8")
 
     def pause(self):
         """Pause playback of current media"""
@@ -428,10 +429,27 @@ class Client:
     # TODO: See also player_mode, is related to sources
 
     def preset(self, number, uri=None):
-        raise NotImplementedError("Presets not implemented yet")
+        """If optional uri is provided, the numbered preset will be set to that uri. If no uri, then load preset by #"""
+        if uri is None:
+            self._logger.info("Setting device to Preset number '"+str(number)+"'...")
+            return self._send("MCUKeyShortClick:"+str(self._validate_preset(number))).content.decode("utf-8")
+        raise NotImplementedError("Setting preset URIs is not implemented yet (API call not known)")
 
-    def playlist(self, uri=None):
-        raise NotImplementedError("Setting playlist not implemented yet")
+    def _validate_preset(self, number):
+        """Internal method to ensure preset is an integer between 1 and 6, inclusive"""
+        try:
+            number = int(number)
+            if number < 1 or number > 6:
+                raise linkplayctl.APIException
+        except (ValueError, linkplayctl.APIException):
+            raise linkplayctl.APIException("Preset number must be an integer between 1 and 6, inclusive")
+        return number
+
+    def playlist(self, uri):
+        """Set player source to the playlist at the provided uri [PROBABLY NOT WORKING ON SOME DEVICES]"""
+        self._logger.info("Setting player playlist to '"+str(uri)+"'...")
+        self._logger.info("Note:  This call apparently does not work on some devices.  Try play(uri) instead.")
+        return self._send("setPlayerCmd:playlist:"+uri).content.decode("utf-8")  # Previous: ":1" on end
 
     ''' Equalizer Control '''
 
