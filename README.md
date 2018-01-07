@@ -6,7 +6,8 @@ A simple shell & python client for controlling Linkplay devices.
 Linkplay is a whitelabel manufacturer that powers a number of brands of wireless speakers and receivers, including:
 * Muzo Cobblestone
 * GGMM E2, E3, E5, M4, M3, etc.
-* Riverson/ANEWISH
+* Riversong/ANEWISH
+* iEast SoundStream & StreamAmp
 * Everything listed at http://linkplay.com/featured-products/
 
 Linkplayctl can control these devices (and many more).  Linkplayctl can remotely reboot devices, start and stop playback, adjust volume, get hardware and player information, turn off annoying jingles, etc.  
