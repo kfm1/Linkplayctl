@@ -18,6 +18,8 @@ class Client:
                               'wiimu-radio': 13, 'wiimu-songlist': 14, 'wiimu-max': 19, 'http': 20, 'http-local':21,
                               'http-max': 29, 'alarm': 30, 'line-in': 40, 'bluetooth': 41, 'ext-local': 42,
                               'optical': 43, 'line-in-max': 49, 'mirror': 50, 'talk': 60, 'slave': 99}
+        self._loop_modes = {'repeat:off:shuffle:off': -1, 'repeat:all:shuffle:off': 0,  'repeat:one:shuffle:off': 1,
+                            'repeat:off:shuffle:on':   3, 'repeat:all:shuffle:on':  2}
         self._auth_types = {'off': 0, 'psk': 1}
         self._session = None
 
@@ -103,7 +105,7 @@ class Client:
         self._logger.info("Setting device name to '"+str(name)+"'...")
         if not isinstance(name, str) or not name:
             raise AttributeError("Device name must be a non-empty string")
-        response = self._send("setDeviceName:"+name)
+        response = self._send("setDeviceName:"+name) # TODO: ToHex??
         if response.status_code != 200:
             raise linkplayctl.APIException("Failed to set device name to '"+name+"'")
         return response.content.decode("utf-8")
@@ -168,7 +170,7 @@ class Client:
             raise linkplayctl.APIException("Authentication type must be one of ["+", ".join(self._auth_types.keys())+"]")
         if auth_value and not new_pass:
             raise linkplayctl.APIException("Authentication type '"+str(auth_type)+"' requires a non-empty password")
-        response = self._send("setNetwork:"+str(auth_value)+":"+(str(new_pass) if new_pass is not None else ""))
+        response = self._send("setNetwork:"+str(auth_value)+":"+(str(new_pass) if new_pass is not None else "")) # TODO: Pass to hex
         self._logger.debug("Authentication set.  Device is rebooting...")
         return response.content.decode("utf-8")
 
@@ -215,7 +217,6 @@ class Client:
         self._logger.info("Setting player mode to '"+str(mode)+"'... [NOT IMPLEMENTED]")
         self._logger.debug("TODO: Figure out format for command switchmode.") # TODO: switchmode, see iEast docs
         raise NotImplementedError("Setting player_mode is not implemented yet")
-        #return self._send("switchmode:"+str(mode))
 
     def player_status(self):
         self._logger.info("Retrieving player status (e.g., play, pause, etc.)...")
@@ -224,42 +225,52 @@ class Client:
     ''' Player Commands '''
 
     def play(self, uri=""):
+        """Start playback of current media""" # TODO: Need to remove colon if no uri?  Also, accept playlist?
         self._logger.info("Beginning playback"+((" of '"+str(uri)+"'") if uri else "")+"...")
         return self._send("setPlayerCmd:play:"+str(uri)).content.decode("utf-8")
 
     def pause(self):
+        """Pause playback of current media"""
         self._logger.info("Pausing playback...")
         return self._send("setPlayerCmd:pause").content.decode("utf-8")
 
     def resume(self):
+        """Resume playback of current media"""
         self._logger.info("Resuming playback...")
         return self._send("setPlayerCmd:resume").content.decode("utf-8")
 
     def stop(self):
+        """Stop playback of current media"""
         self._logger.info("Stop playback...")
         return self._send("setPlayerCmd:stop").content.decode("utf-8")
 
     def previous(self):
+        """Skip backward to previous track"""
         self._logger.info("Skipping backward to previous media track...")
         return self._send("setPlayerCmd:prev").content.decode("utf-8")
 
     def next(self):
+        """Skip forward to next track"""
         self._logger.info("Skipping forward to next media track...")
         return self._send("setPlayerCmd:next").content.decode("utf-8")
 
     def seek(self, val):
+        """Move to provided time in seconds in media"""
         self._logger.info("Seeking to '" + str(val) + "' second mark in media...")
         return self._position(int(math.floor(float(val)*1000)))
 
     def back(self, val=10):
+        """Rewind playback by given seconds, default 10"""
         self._logger.info("Rewinding playback by '" + str(val) + "' seconds...")
         return self._position(int(self._position() - int(math.floor(float(val)*1000))))
 
     def forward(self, val=10):
+        """Fast-forward playback by given seconds, default 10"""
         self._logger.info("Fast-forwarding playback by '" + str(val) + "' seconds...")
         return self._position(int(self._position() + int(math.floor(float(val)*1000))))
 
     def _seek(self, val):
+        """Internal method to move to provided second mark in media"""
         totlen_ms = int(self._length())
         newpos_ms = int(math.floor(float(val)*1000))
         newpos_ms = max(0, min(totlen_ms, newpos_ms))
@@ -267,6 +278,54 @@ class Client:
         self._logger.debug("Seeking to " + str(newpos) + " second mark in media "+
                            "(position "+str(newpos_ms)+" of "+str(totlen_ms)+")...")
         return self._send("setPlayerCmd:seek:"+str(newpos)).content.decode("utf-8")
+
+    ''' Shuffle and Repeat '''
+
+    def _loop(self, mode=None):
+        """Internal method to get or set the current looping mode (includes shuffle and repeat setting)"""
+        if mode is None:
+            inverse_loop_modes = {v: k for k, v in self._loop_modes.items()}
+            self._logger.debug("Requesting current loop mode...")
+            loopval = self._player_info().get('loop')
+            self._logger.debug("Current loop mode value is '"+str(loopval)+"'. Mapping to mode names...")
+            try:
+                return inverse_loop_modes[int(loopval)]
+            except KeyError:
+                raise linkplayctl.APIException("Received unknown loop mode value '"+str(loopval)+"' from device")
+        try:
+            value = self._loop_modes[str(mode)]
+            self._logger.debug("Setting loop mode to '"+str(mode)+"' [value: '"+str(value)+"']...")
+        except KeyError:
+            try:
+                value = int(mode) if int(mode) in self._loop_modes.values() else -1
+            except:
+                raise linkplayctl.APIException("Cannot set unknown loop mode '"+str(mode)+"'")
+            inverse_loop_modes = {v: k for k, v in self._loop_modes.items()}
+            self._logger.debug("Setting loop mode to '"+str(inverse_loop_modes[value])+"' [value: '" +str(value)+"']...")
+        return self._send('setPlayerCmd:loopmode:'+str(value)).content.decode("utf-8")
+
+    def shuffle(self, value=None):
+        """Get or set the shuffle--either on/1/True to turn shuffle on, otherwise turn shuffle off"""
+        if value is None:
+            self._logger.info("Retrieving shuffle setting...")
+            return self._loop().split(':')[3]
+        self._logger.info("Setting shuffle to '"+str(value)+"'")
+        shuffle = "off" if (isinstance(value, str) and (value == "off" or value == "0")) or not value else "on"
+        repeat = self._loop().split(':')[1]
+        return self._loop("repeat:"+repeat+":shuffle:"+shuffle)
+
+    def repeat(self, value=None):
+        """Get or set the repeat--'one' or 'all' or 'off'"""
+        if value is None:
+            self._logger.info("Retrieving repeat setting...")
+            return self._loop().split(':')[1]
+        self._logger.info("Setting repeat to '"+str(value)+"'")
+        if isinstance(value, str) and value == "one":
+            repeat = "one"
+        else:
+            repeat = "off" if (isinstance(value, str) and (value == "off" or value == "0")) or not value else "all"
+        shuffle = "off" if repeat == "one" else self._loop().split(':')[3]
+        return self._loop("repeat:"+repeat+":shuffle:"+shuffle)
 
     ''' Media Info '''
 
@@ -305,12 +364,6 @@ class Client:
 
     def _length(self):
         return int(self._player_info().get('totlen'))
-
-    def _dehexify(self, hex_string):
-        try:
-            return bytearray.fromhex(hex_string).decode()
-        except ValueError:
-            return hex_string
 
     ''' Volume Control '''
 
@@ -372,6 +425,18 @@ class Client:
         self._logger.info("Turning muting off")
         return self._send("setPlayerCmd:mute:0").content.decode("utf-8")
 
+    ''' Source Control '''
+
+    def preset(self, number, uri=None):
+        raise NotImplementedError("Presets not implemented yet")
+
+    def playlist(self, uri=None):
+        raise NotImplementedError("Setting playlist not implemented yet")
+
+    # See also player_mode, is related to sources
+
+
+
     ''' Equalizer Control '''
 
     def equalizer(self, mode=None):
@@ -421,7 +486,7 @@ class Client:
         return response.content.decode("utf-8")
 
     def prompt_language(self, value=None):
-        """Set the prompt language [NOT IMPLEMENTED]"""
+        """Set the prompt language [NOT IMPLEMENTED]"""  # TODO: ToHex?
         self._logger.info("Setting voice prompts language... [NOT IMPLEMENTED]")
         raise NotImplementedError("Command 'prompt_language' is not implemented yet")
 
@@ -489,3 +554,15 @@ class Client:
             return response
         except requests.exceptions.RequestException as e:
             raise linkplayctl.ConnectionException("Could not connect to '" + str(self._address) + "': " + str(e))
+
+    def _dehexify(self, hex_string):
+        try:
+            return bytearray.fromhex(hex_string).decode()
+        except ValueError:
+            return hex_string
+
+    def _hexify(self, string):
+        try:
+            return " ".join("{:02x}".format(c) for c in string.encode())
+        except ValueError:
+            return string
