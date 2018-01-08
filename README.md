@@ -68,8 +68,8 @@ To date, Linkplayctl implements about 70 commands, which are implemented and doc
 
 ### Acknowledgments
 
-* https://github.com/AndersFluur/IEastMediaRoom for API description
-* https://marketplace.fibaro.com/profiles/albert-walczyk for API
+* https://github.com/AndersFluur/IEastMediaRoom for API info
+* https://marketplace.fibaro.com/profiles/albert-walczyk for API info
 
 
 

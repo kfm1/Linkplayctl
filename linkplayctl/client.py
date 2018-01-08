@@ -1,6 +1,7 @@
 import logging
 import time
 import requests
+import json
 import math
 import linkplayctl
 
@@ -99,7 +100,7 @@ class Client:
     def _device_info(self):
         """Internal method to retrieve device status"""
         response = self._send("getStatus")
-        return response.json()
+        return self._json_decode(response)
 
     def name(self, name=None):
         """Get or set the device name to be used for services such as Airplay"""
@@ -181,8 +182,7 @@ class Client:
     def wifi_networks(self):
         """Get a list of available WiFi access points"""
         self._logger.info("Retrieving WiFi available networks list...")
-        response = self._send("wlanGetApList")
-        return response.json()
+        return self._json_decode(self._send("wlanGetApList"))
 
     def wifi_status(self):
         """Get the current status of the WiFi connection"""
@@ -196,11 +196,8 @@ class Client:
 
     def wifi_off(self):
         """Disable the WiFi radio"""
-        response = self._send("setWifiPowerDown")
         self._logger.info("Turning off WiFi radio...")
-        if response.status_code != 200:
-            raise linkplayctl.APIException("Failed to disable wifi: Status code="+str(response.status_code))
-        return response.content.decode("utf-8")
+        return self._send("setWifiPowerDown").content.decode("utf-8")
 
     ''' Player Status & Commands '''
 
@@ -211,8 +208,7 @@ class Client:
 
     def _player_info(self):
         """Internal method to retrieve player subsystem information."""
-        response = self._send("getPlayerStatus")
-        return response.json()
+        return self._json_decode(self._send("getPlayerStatus"))
 
     def transport(self):
         """Get current transport status, e.g., play, pause, etc...."""
@@ -327,15 +323,15 @@ class Client:
 
     def title(self):
         self._logger.info("Retrieving current media title...")
-        return self._dehexify(self._player_info().get('Title'))
+        return self._dehex(self._player_info().get('Title'))
 
     def album(self):
         self._logger.info("Retrieving current media album...")
-        return self._dehexify(self._player_info().get('Album'))
+        return self._dehex(self._player_info().get('Album'))
 
     def artist(self):
         self._logger.info("Retrieving current media artist...")
-        return self._dehexify(self._player_info().get('Artist'))
+        return self._dehex(self._player_info().get('Artist'))
 
     def position(self, newpos_ms=None):
         if newpos_ms is None:
@@ -421,8 +417,6 @@ class Client:
 
     ''' Source Control '''
 
-    # TODO: See also player_mode, is related to sources
-
     def source(self, mode=None):
         """Get the current player source, such as airplay, dlna, wiimu (playlist), bluetooth"""
         if mode is None:
@@ -452,7 +446,10 @@ class Client:
     def linein(self):
         return self.aux()
 
-    ''' Presets '''
+    def local(self, index=1):
+        """Set player source to the local filesystem (SD, USB, etc.) and start playing at provided file index"""
+        self._logger.info("Setting player source to local device (SD, USB, etc.), track number '"+str(index)+"'...")
+        return self._send("setPlayerCmd:playLocalList:"+str(int(index))).content.decode("utf-8")
 
     def preset(self, number, uri=None):
         """If optional uri is provided, the numbered preset will be set to that uri. If no uri, then load preset by #"""
@@ -478,11 +475,11 @@ class Client:
         if mode is None:
             self._logger.info("Retrieving current equalizer setting...")
             inverse_eq_modes = {v: k for k, v in self._equalizer_modes.items()}
-            value = self._send("getEqualizer").json()
+            value = self._json_decode(self._send("getEqualizer"))
             try:
                 mode = inverse_eq_modes[value]
             except KeyError:
-                raise AttributeError("Received unknown equalizer mode value '"+str(value)+"'")
+                raise linkplayctl.APIException("Received unknown equalizer mode value '"+str(value)+"'")
             self._logger.info("Received equalizer mode '"+mode+"' (value "+str(value)+")")
             return mode
         self._logger.info("Setting equalizer to '"+str(mode)+"'...")
@@ -545,32 +542,65 @@ class Client:
         return self._send("getMvRemoteUpdateStartCheck").content.decode("utf-8")
 
     def firmware_update_available(self):
+        """Display information about possible firmware updates (must call firmware_update_search() first)"""
         self._logger.info("Retrieving firmware update availability...")
-        return self._send("getMvRemoteUpdateStatus").json()
+        return self._json_decode(self._send("getMvRemoteUpdateStatus"))
 
     def firmware_update_version(self):
+        """Display version of firmware update, if any (must call firmware_update_search() first)"""
         self._logger.info("Retrieving firmware update version...")
         return self._device_info().get("NewVer")
 
     ''' Multi-Room Setup '''
 
-    def multiroom_list(self):
-        self._logger.info("Retrieving list of multiroom group slaves")
-        return self._send("multiroom:getSlaveList").json()
+    def multiroom_info(self):
+        """Get information about the multiroom group status of this device"""
+        self._logger.info("Retrieving multiroom master and slaves of this device, if any...")
+        self._logger.debug("Retrieving master information...")
+        try:
+            master_info = {'status': 'slave', 'master': {'ip': self._device_info()['master_ip']}}
+        except KeyError:
+            master_info = {'status': 'master'}
+        self._logger.debug("Retrieving slave information...")
+        response = self._send("multiroom:getSlaveList")
+        slave_info = self._json_decode(response)
+        master_info.update(slave_info)
+        return master_info
 
-    def multiroom_remove(self, ip):
-        self._logger.info("Removing '"+str(ip)+"' from list of multiroom slaves")
-        return self._send("multiroom:SlaveKickout:"+str(ip)).content.decode("utf-8")
+    def multiroom_add(self, slave_ip):
+        """Make device at slave_ip a slave of the current device"""
+        self._logger.info("Slaving '"+str(slave_ip)+"' to this device...")
+        info = self._device_info()
+        secure = info.get('securemode')
+        args = [info.get('ssid'), info.get('WifiChannel'), info.get('auth') if secure else "OPEN",
+                info.get('encry') if secure else "", info.get('psk') if secure else ""]
+        self._logger.debug("Opening client connection to slave device '"+str(slave_ip)+"'...")
+        slave = linkplayctl.Client(slave_ip)
+        return slave.multiroom_master(*args)
 
-    def multiroom_hide(self, ip):
-        self._logger.info("Hiding multiroom slave '" + str(ip) + "' from network list")
-        return self._send("multiroom:SlaveMask:"+str(ip)).content.decode("utf-8")
+    def multiroom_master(self, ssid, channel, auth, encryption, psk):
+        """Set the multiroom master of this device"""
+        self._logger.info("Requesting multiroom sync as slave to master at ssid '"+str(ssid)+"'...")
+        return self._send("ConnectMasterAp:ssid=" + str(self._hex(ssid)) + ":ch=" + str(channel) + ":auth=" + auth +
+                          ":encry=" + encryption +":pwd=" + self._hex(psk) + ":chext=0").content.decode("utf-8")
 
-    def multiroom_show(self, ip):
-        self._logger.info("Unhiding multiroom slave '" + str(ip) + "' from network list")
-        return self._send("multiroom:SlaveUnMask:"+str(ip)).content.decode("utf-8")
+    def multiroom_remove(self, slave_ip):
+        """Remove device at slave_ip from this multiroom group"""
+        self._logger.info("Removing slave '"+str(slave_ip)+"' from multiroom group")
+        return self._send("multiroom:SlaveKickout:"+str(slave_ip)).content.decode("utf-8")
+
+    def multiroom_hide(self, slave_ip):
+        """Force given slave_ip to hide itself from the local network"""
+        self._logger.info("Hiding multiroom slave '" + str(slave_ip) + "' from network list")
+        return self._send("multiroom:SlaveMask:" + str(slave_ip)).content.decode("utf-8")
+
+    def multiroom_show(self, slave_ip):
+        """Force given slave_ip to show itself on the local network"""
+        self._logger.info("Unhiding multiroom slave '" + str(slave_ip) + "' from network list")
+        return self._send("multiroom:SlaveUnMask:" + str(slave_ip)).content.decode("utf-8")
 
     def multiroom_off(self):
+        """Remove self from multiroom group and, if master, tear down the whole group"""
         self._logger.info("Tearing down the current multiroom group...")
         return self._send("multiroom:Ungroup").content.decode("utf-8")
 
@@ -598,14 +628,28 @@ class Client:
         except KeyboardInterrupt:
             raise linkplayctl.ConnectionException("Connection interrupted")
 
-    def _dehexify(self, hex_string):
+    def _dehex(self, hex_string):
+        """Decode hex_string into string, if possible, otherwise return hex_string unmodified"""
         try:
             return bytearray.fromhex(hex_string).decode()
         except ValueError:
             return hex_string
 
-    def _hexify(self, string):
+    def _hex(self, string):
+        """Encode string into hex, if possible, otherwise return string unmodified"""
         try:
             return "".join("{:02x}".format(c) for c in string.encode())
         except ValueError:
             return string
+
+    def _json_decode(self, s):
+        try:
+            s = s.content
+        except AttributeError: pass
+        try:
+            s = s.decode("utf-8")
+        except UnicodeDecodeError: pass
+        try:
+            return json.JSONDecoder().decode(str(s))
+        except json.JSONDecodeError as e:
+            raise linkplayctl.APIException("Expected JSON from API, got: '"+str(s)+"'")
