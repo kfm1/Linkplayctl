@@ -28,8 +28,8 @@ class Client:
 
     ''' Basic Information & Commands '''
 
-    def info(self):
-        """Retrieve a combined list of unprocessed device and player information"""
+    def info(self) -> dict:
+        """Retrieve combined device and player information"""
         self._logger.info("Retrieving combined device and player info...")
         device_status = self._device_info()
         player_status = self._player_info()
@@ -37,12 +37,12 @@ class Client:
         status.update(player_status)
         return status
 
-    def reboot(self):
-        """Request a device reboot"""
+    def reboot(self) -> str:
+        """Request an immediate device reboot"""
         self._logger.info("Requesting reboot...")
         return self._reboot()
 
-    def _reboot(self):
+    def _reboot(self) -> str:
         """Internal, non-blocking method for performing reboots"""
         response = self._send("reboot")
         if response.status_code != 200 or response.content.decode("utf-8") != "OK":
@@ -50,7 +50,7 @@ class Client:
                                            "Status "+str(response.status_code)+" Content: "+response.content)
         return response.content.decode("utf-8")
 
-    def reboot_silent(self):
+    def reboot_silent(self) -> str:
         """Reboot the device quietly, i.e., without boot jingle. Returns when complete, usually ~60 seconds."""
         t0 = time.time()
         self._logger.info("Requesting quiet reboot...")
@@ -72,11 +72,11 @@ class Client:
         self._logger.debug("Quiet reboot complete.  Elapsed time: "+str(elapsed_time)+"ms")
         return "OK"
 
-    def silent_reboot(self):
+    def silent_reboot(self) -> str:
         """Alias for reboot_silent()"""
         return self.reboot_silent()
 
-    def shutdown(self):
+    def shutdown(self) -> str:
         """Request an immediate device shutdown"""
         self._logger.info("Requesting shutdown...")
         response = self._send("getShutdown")
@@ -84,7 +84,7 @@ class Client:
             raise linkplayctl.APIException("Failed to shutdown: Status code="+str(response.status_code))
         return response.content.decode("utf-8")
 
-    def command(self, text):
+    def command(self, text) -> object:
         """Send given text as a command to device and return result"""
         self._logger.info("Executing command '"+str(text)+"'...")
         response = self._send(text)
@@ -92,17 +92,17 @@ class Client:
 
     ''' Device Information & Settings '''
 
-    def device_info(self):
-        """Retrieve a list of device and hardware info, such as name, firmware, etc."""
+    def device_info(self) -> dict:
+        """Retrieve device and hardware info, such as name, firmware, etc."""
         self._logger.info("Retrieving device info...")
         return self._device_info()
 
-    def _device_info(self):
+    def _device_info(self) -> dict:
         """Internal method to retrieve device status"""
         response = self._send("getStatus")
         return self._json_decode(response)
 
-    def name(self, name=None):
+    def name(self, name: str = None) -> str:
         """Get or set the device name to be used for services such as Airplay"""
         if not name:
             self._logger.info("Retrieving device name...")
@@ -115,55 +115,58 @@ class Client:
             raise linkplayctl.APIException("Failed to set device name to '"+name+"'")
         return response.content.decode("utf-8")
 
-    def group(self):
+    def group(self) -> str:
         """Get the name of the multiroom group to which the device belongs"""  # TODO: Is this same as multiroom master?
         self._logger.info("Retrieving device group name...")
         return self._device_info().get("GroupName")
 
-    def uuid(self):
+    def uuid(self) -> str:
         """Get the device's UUID"""
         self._logger.info("Retrieving device UUID...")
         return self._device_info().get("uuid")
 
-    def hardware(self):
+    def hardware(self) -> str:
         """Get the device's hardware version"""
         self._logger.info("Retrieving device hardware version...")
         return self._device_info().get("hardware")
 
-    def model(self):
+    def model(self) -> str:
         """Get the device's model name (aka project name)"""
         self._logger.info("Retrieving device model name (aka project)...")
         return self._device_info().get("project")
 
     ''' WiFi Status & Connections '''
 
-    def wifi_ssid(self):
+    def wifi_ssid(self) -> str:
         """Get the device's WiFi access point SSID"""
         self._logger.info("Retrieving WiFi SSID...")
         return self._device_info().get("ssid")
 
-    def wifi_ssid_hidden(self):
+    def wifi_ssid_hidden(self) -> bool:
         """Returns True if the device's WiFi's SSID is hidden, False otherwise"""
         self._logger.info("Retrieving WiFi hidden SSID flag...")
         return int(self._device_info().get("hideSSID")) == 1
 
-    def wifi_channel(self):
+    def wifi_channel(self) -> int:
         """Returns the current channel of the device's WiFi radio"""
         self._logger.info("Retrieving WiFi channel...")
         return int(self._device_info().get("WifiChannel"))
 
-    def wifi_power(self):
+    def wifi_power(self) -> float:
         """Get the current power of the wifi radio"""
         self._logger.info("Retrieving current WiFi radio power... [NOT IMPLEMENTED]")
         raise NotImplementedError("Command 'wifi_power' is not implemented yet")
 
-    def wifi_mac(self):
+    def wifi_mac(self) -> str:
         """Get the MAC of the wifi radio"""
         self._logger.info("Retrieving WiFi MAC address...")
         return self._device_info().get("MAC")
 
-    def wifi_auth(self, auth_type=None, new_pass=None):
-        """Get or set the network authentication parameters"""
+    def wifi_auth(self, auth_type: str = None, new_pass: str = None):
+        """Get or set the network authentication parameters
+
+            :returns: str Device response (usually "OK") if set, dict of auth values if get
+        """
         if auth_type is None:
             self._logger.info("Retrieving WiFi authentication information...")
             return {k: v for (k, v) in self._device_info().items() if (k in ["securemode", "auth", "encry", "psk"])}
@@ -179,12 +182,12 @@ class Client:
         self._logger.debug("Authentication set.  Device is rebooting...")
         return response.content.decode("utf-8")
 
-    def wifi_networks(self):
-        """Get a list of available WiFi access points"""
+    def wifi_networks(self) -> dict:
+        """Get available WiFi access points"""
         self._logger.info("Retrieving WiFi available networks list...")
         return self._json_decode(self._send("wlanGetApList"))
 
-    def wifi_status(self):
+    def wifi_status(self) -> str:
         """Get the current status of the WiFi connection"""
         self._logger.info("Retrieving WiFi connection status...")
         inverse_wifi_statuses = {v: k for k, v in self._wifi_statuses.items()}
@@ -194,74 +197,74 @@ class Client:
         except KeyError:
             raise linkplayctl.APIException("Received unrecognized wifi status: '"+str(response)+"'")
 
-    def wifi_off(self):
+    def wifi_off(self) -> str:
         """Disable the WiFi radio"""
         self._logger.info("Turning off WiFi radio...")
         return self._send("setWifiPowerDown").content.decode("utf-8")
 
     ''' Player Status & Commands '''
 
-    def player_info(self):
-        """Get a list of player subsystem information, such as current title, volume, etc."""
+    def player_info(self) -> dict:
+        """Get player subsystem information, such as current title, volume, etc."""
         self._logger.info("Retrieving player information...")
         return self._player_info()
 
-    def _player_info(self):
+    def _player_info(self) -> dict:
         """Internal method to retrieve player subsystem information."""
         return self._json_decode(self._send("getPlayerStatus"))
 
-    def transport(self):
+    def transport(self) -> str:
         """Get current transport status, e.g., play, pause, etc...."""
         self._logger.info("Retrieving current transport status, e.g., play, pause, stop.")
         self._logger.info("Note: Devices report incorrect transport status for some streams, such as airplay/dlna")
         return self._player_info().get('status')
 
-    def play(self, uri=""):
-        """Start playback of track/playlist at uri, or current media if none"""
+    def play(self, uri: str = None) -> str:
+        """Start playback of track/playlist at uri, or current media if None"""
         self._logger.info("Starting playback of "+(("'"+str(uri)+"'") if uri else "current media")+"...")
         return self._send("setPlayerCmd:play"+(":"+str(uri) if uri else "")).content.decode("utf-8")
 
-    def pause(self):
+    def pause(self) -> str:
         """Pause playback of current media"""
         self._logger.info("Pausing playback...")
         return self._send("setPlayerCmd:pause").content.decode("utf-8")
 
-    def resume(self):
+    def resume(self) -> str:
         """Resume playback of current media"""
         self._logger.info("Resuming playback...")
         return self._send("setPlayerCmd:resume").content.decode("utf-8")
 
-    def stop(self):
+    def stop(self) -> str:
         """Stop playback of current media"""
         self._logger.info("Stop playback...")
         return self._send("setPlayerCmd:stop").content.decode("utf-8")
 
-    def previous(self):
+    def previous(self) -> str:
         """Skip backward to previous track"""
         self._logger.info("Skipping backward to previous media track...")
         return self._send("setPlayerCmd:prev").content.decode("utf-8")
 
-    def next(self):
+    def next(self) -> str:
         """Skip forward to next track"""
         self._logger.info("Skipping forward to next media track...")
         return self._send("setPlayerCmd:next").content.decode("utf-8")
 
-    def seek(self, val):
+    def seek(self, val: float) -> str:
         """Move to provided time in seconds in media"""
         self._logger.info("Seeking to '" + str(val) + "' second mark in media...")
         return self._position(int(math.floor(float(val)*1000)))
 
-    def back(self, val=10):
+    def back(self, val: float = 10) -> str:
         """Rewind playback by given seconds, default 10"""
         self._logger.info("Rewinding playback by '" + str(val) + "' seconds...")
         return self._position(int(self._position() - int(math.floor(float(val)*1000))))
 
-    def forward(self, val=10):
+    def forward(self, val: float = 10) -> str:
         """Fast-forward playback by given seconds, default 10"""
         self._logger.info("Fast-forwarding playback by '" + str(val) + "' seconds...")
         return self._position(int(self._position() + int(math.floor(float(val)*1000))))
 
-    def _seek(self, val):
+    def _seek(self, val: float) -> str:
         """Internal method to move to provided second mark in media"""
         totlen_ms = int(self._length())
         newpos_ms = int(math.floor(float(val)*1000))
@@ -273,7 +276,7 @@ class Client:
 
     ''' Shuffle and Repeat '''
 
-    def _loop(self, mode=None):
+    def _loop(self, mode: str = None) -> str:
         """Internal method to get or set the current looping mode (includes shuffle and repeat setting)"""
         if mode is None:
             inverse_loop_modes = {v: k for k, v in self._loop_modes.items()}
@@ -296,7 +299,7 @@ class Client:
             self._logger.debug("Setting loop mode to '"+str(inverse_loop_modes[value])+"' [value: '" +str(value)+"']...")
         return self._send('setPlayerCmd:loopmode:'+str(value)).content.decode("utf-8")
 
-    def shuffle(self, value=None):
+    def shuffle(self, value: str = None) -> str:
         """Get or set the shuffle--either on/1/True to turn shuffle on, otherwise turn shuffle off"""
         if value is None:
             self._logger.info("Retrieving shuffle setting...")
@@ -306,7 +309,7 @@ class Client:
         repeat = self._loop().split(':')[1]
         return self._loop("repeat:"+repeat+":shuffle:"+shuffle)
 
-    def repeat(self, value=None):
+    def repeat(self, value: str = None) -> str:
         """Get or set the repeat--'one' or 'all' or 'off'"""
         if value is None:
             self._logger.info("Retrieving repeat setting...")
@@ -321,26 +324,26 @@ class Client:
 
     ''' Media Info '''
 
-    def title(self):
+    def title(self) -> str:
         self._logger.info("Retrieving current media title...")
         return self._dehex(self._player_info().get('Title'))
 
-    def album(self):
+    def album(self) -> str:
         self._logger.info("Retrieving current media album...")
         return self._dehex(self._player_info().get('Album'))
 
-    def artist(self):
+    def artist(self) -> str:
         self._logger.info("Retrieving current media artist...")
         return self._dehex(self._player_info().get('Artist'))
 
-    def position(self, newpos_ms=None):
+    def position(self, newpos_ms: int = None) -> str:
         if newpos_ms is None:
             self._logger.info("Retrieving player's current position in media...")
         else:
             self._logger.info("Setting player's position in media to "+str(newpos_ms)+"...")
         return self._position(newpos_ms)
 
-    def _position(self, newpos_ms=None):
+    def _position(self, newpos_ms: int = None) -> str:
         if newpos_ms is None:
             return int(self._player_info().get('curpos'))
         self._logger.debug("Checking total media length to ensure new position is not past the end of the media...")
@@ -350,25 +353,31 @@ class Client:
         self._logger.debug("Setting player media position to "+str(newpos_ms)+" (of "+str(totlen_ms)+" ms)...")
         return self._send("setPlayerCmd:seek:"+str(newpos)).content.decode("utf-8")
 
-    def length(self):
-        self._logger.info("Retrieving total length of current media...")
+    def length(self) -> int:
+        self._logger.info("Retrieving total length of current media in ms...")
         return self._length()
 
-    def _length(self):
+    def _length(self) -> int:
         return int(self._player_info().get('totlen'))
 
     ''' Volume Control '''
 
-    def volume(self, value=None):
-        """Get or set the volume to an absolute value between 0 and 100 or a relative value -100 to +100"""
+    def volume(self, value: object = None):
+        """ Get or set the volume to an absolute value between 0 and 100 or a relative value -100 to +100
+
+            :returns: int volume, or "OK" on volume set
+        """
         if value is None:
             self._logger.info("Retrieving device volume...")
             return self._volume()
         self._logger.info("Setting volume '"+str(value)+"'...")
         return self._volume(value)
 
-    def _volume(self, value=None):
-        """Internal method to get/set volume to an absolute value between 0 and 100 or a relative value -100 to +100"""
+    def _volume(self, value: object = None):
+        """ Internal method to get/set volume to an absolute value between 0 and 100 or a relative value -100 to +100
+
+            :returns: int volume, or "OK" on volume set
+        """
         if value is None:
             return int(self._player_info().get("vol"))
         try:
@@ -386,15 +395,16 @@ class Client:
             raise linkplayctl.APIException("Failed to set volume to '"+str(new_volume)+"'")
         return response.content.decode("utf-8")
 
-    def volume_up(self, value=5):
-        """Increase volume by given integer amount, defaults to plus 5"""
-        self.volume("+"+str(value))
-        return "OK"
+    def volume_up(self, value=5) -> str:
+        """ Increase volume by given integer amount, defaults to plus 5
+
+            :param value: int, float, str - Numeric
+        """
+        return self.volume("+"+str(value))
 
     def volume_down(self, value=5):
         """Decrease volume by given integer amount, defaults to minus 5"""
-        self.volume("-"+str(value))
-        return "OK"
+        return self.volume("-"+str(value))
 
     def mute(self, value=None):
         """Get or set the muting state. 'off' or falsy values turn muting off, otherwise muting is turned on."""
@@ -405,19 +415,19 @@ class Client:
             return self.mute_off()
         return self.mute_on()
 
-    def mute_on(self):
+    def mute_on(self) -> str:
         """Mute the device"""
         self._logger.info("Turning muting on")
         return self._send("setPlayerCmd:mute:1").content.decode("utf-8")
 
-    def mute_off(self):
+    def mute_off(self) -> str:
         """Unmute the device"""
         self._logger.info("Turning muting off")
         return self._send("setPlayerCmd:mute:0").content.decode("utf-8")
 
     ''' Source Control '''
 
-    def source(self, mode=None):
+    def source(self, mode: str = None) -> str:
         """Get the current player source, such as airplay, dlna, wiimu (playlist), bluetooth"""
         if mode is None:
             self._logger.info("Retrieving current player source (e.g., airplay, dlna, etc.)...")
@@ -427,39 +437,39 @@ class Client:
         self._logger.info("Setting player source to '"+str(mode)+"'... [NOT IMPLEMENTED]")
         raise NotImplementedError("Method source(mode) is not implemented. Try bluetooth(), aux(), etc.")
 
-    def playlist(self, uri):
+    def playlist(self, uri: str) -> str:
         """Set player source to the playlist at the provided uri [PROBABLY NOT WORKING ON SOME DEVICES]"""
         self._logger.info("Setting player playlist to '"+str(uri)+"'...")
         self._logger.info("Note:  This call apparently does not work on some devices.  Try play(uri) instead.")
         return self._send("setPlayerCmd:playlist:"+uri).content.decode("utf-8")  # Previously: ":1" on end.
 
-    def bluetooth(self):
+    def bluetooth(self) -> str:
         """Set player source to bluetooth"""
         self._logger.info("Setting player source to bluetooth...")
         return self._send("setPlayerCmd:switchmode:bluetooth").content.decode("utf-8")
 
-    def aux(self):
+    def aux(self) -> str:
         """Set player source to AUX/line-in)"""
         self._logger.info("Setting player source to AUX/line-in...")
         return self._send("setPlayerCmd:switchmode:line-in").content.decode("utf-8")
 
-    def linein(self):
+    def linein(self) -> str:
         return self.aux()
 
-    def local(self, index=1):
+    def local(self, index: int=1) -> str:
         """Set player source to the local filesystem (SD, USB, etc.) and start playing at provided file index"""
         self._logger.info("Setting player source to local device (SD, USB, etc.), track number '"+str(index)+"'...")
         return self._send("setPlayerCmd:playLocalList:"+str(int(index))).content.decode("utf-8")
 
-    def preset(self, number, uri=None):
+    def preset(self, number: int, uri: str=None) -> str:
         """If optional uri is provided, the numbered preset will be set to that uri. If no uri, then load preset by #"""
         if uri is None:
             self._logger.info("Setting device to Preset number '"+str(number)+"'...")
             return self._send("MCUKeyShortClick:"+str(self._validate_preset(number))).content.decode("utf-8")
         raise NotImplementedError("Setting preset URIs is not implemented yet (API call not known)")
 
-    def _validate_preset(self, number):
-        """Internal method to ensure preset is an integer between 1 and 6, inclusive"""
+    def _validate_preset(self, number: object) -> int:
+        """Internal method to validate and return preset as an integer between 1 and 6, inclusive"""
         try:
             number = int(number)
             if number < 1 or number > 6:
@@ -470,7 +480,7 @@ class Client:
 
     ''' Equalizer Control '''
 
-    def equalizer(self, mode=None):
+    def equalizer(self, mode: str=None) -> str:
         """Get or set the equalizer mode"""
         if mode is None:
             self._logger.info("Retrieving current equalizer setting...")
@@ -494,18 +504,18 @@ class Client:
             raise linkplayctl.APIException("Failed to set equalizer to mode '"+str(mode)+"' (value '"+str(mode_value)+"'")
         return response.content.decode("utf-8")
 
-    def equalizer_modes(self):
+    def equalizer_modes(self) -> dict:
         """Returns the allowed equalizer modes along with their mapped values"""
         return self._equalizer_modes
 
     ''' Voice Prompts & Jingles '''
 
-    def prompt(self):
+    def prompt(self) -> str:
         """Retrieve the voice prompt boolean--not implemented because API command is not known"""
         self._logger.info("Retrieving voice prompts setting...")
         raise NotImplementedError("Prompt() is not implemented yet.")
 
-    def prompt_on(self):
+    def prompt_on(self) -> str:
         """Enable voice prompts and notifications"""
         self._logger.info("Turning voice prompts on...")
         response = self._send("PromptEnable")
@@ -513,7 +523,7 @@ class Client:
             raise linkplayctl.APIException("Failed to enable prompts: Status code="+str(response.status_code))
         return response.content.decode("utf-8")
 
-    def prompt_off(self):
+    def prompt_off(self) -> str:
         """Disable voice prompts and notifications"""
         self._logger.info("Turning voice prompts off...")
         response = self._send("PromptDisable")
@@ -521,7 +531,7 @@ class Client:
             raise linkplayctl.APIException("Failed to disable prompts: Status code="+str(response.status_code))
         return response.content.decode("utf-8")
 
-    def prompt_language(self, value=None):
+    def prompt_language(self, value: str=None) -> str:
         if value is None:
             self._logger.info("Getting voice prompts language...")
             return self._device_info().get('language')
@@ -531,29 +541,29 @@ class Client:
 
     ''' Firmware Updating '''
 
-    def firmware_version(self):
+    def firmware_version(self) -> str:
         """Get the current firmware version"""
         self._logger.info("Retrieving current firmware version")
         return self._device_info().get("firmware")
 
-    def firmware_update_search(self):
+    def firmware_update_search(self) -> str:
         """Initiate a non-blocking search for new firmware"""
         self._logger.info("Starting firmware update search...")
         return self._send("getMvRemoteUpdateStartCheck").content.decode("utf-8")
 
-    def firmware_update_available(self):
+    def firmware_update_available(self) -> str:
         """Display information about possible firmware updates (must call firmware_update_search() first)"""
         self._logger.info("Retrieving firmware update availability...")
         return self._json_decode(self._send("getMvRemoteUpdateStatus"))
 
-    def firmware_update_version(self):
+    def firmware_update_version(self) -> str:
         """Display version of firmware update, if any (must call firmware_update_search() first)"""
         self._logger.info("Retrieving firmware update version...")
         return self._device_info().get("NewVer")
 
     ''' Multi-Room Setup '''
 
-    def multiroom_info(self):
+    def multiroom_info(self) -> dict:
         """Get information about the multiroom group status of this device"""
         self._logger.info("Retrieving multiroom master and slaves of this device, if any...")
         self._logger.debug("Retrieving master information...")
@@ -567,7 +577,7 @@ class Client:
         master_info.update(slave_info)
         return master_info
 
-    def multiroom_add(self, slave_ip):
+    def multiroom_add(self, slave_ip: str) -> str:
         """Make device at slave_ip a slave of the current device"""
         self._logger.info("Slaving '"+str(slave_ip)+"' to this device...")
         info = self._device_info()
@@ -578,39 +588,39 @@ class Client:
         slave = linkplayctl.Client(slave_ip)
         return slave.multiroom_master(*args)
 
-    def multiroom_master(self, ssid, channel, auth, encryption, psk):
+    def multiroom_master(self, ssid: str, channel: int, auth: str, encryption: str, psk: str) -> str:
         """Set the multiroom master of this device"""
         self._logger.info("Requesting multiroom sync as slave to master at ssid '"+str(ssid)+"'...")
         return self._send("ConnectMasterAp:ssid=" + str(self._hex(ssid)) + ":ch=" + str(channel) + ":auth=" + auth +
                           ":encry=" + encryption +":pwd=" + self._hex(psk) + ":chext=0").content.decode("utf-8")
 
-    def multiroom_remove(self, slave_ip):
+    def multiroom_remove(self, slave_ip: str) -> str:
         """Remove device at slave_ip from this multiroom group"""
         self._logger.info("Removing slave '"+str(slave_ip)+"' from multiroom group")
         return self._send("multiroom:SlaveKickout:"+str(slave_ip)).content.decode("utf-8")
 
-    def multiroom_hide(self, slave_ip):
+    def multiroom_hide(self, slave_ip: str) -> str:
         """Force given slave_ip to hide itself from the local network"""
         self._logger.info("Hiding multiroom slave '" + str(slave_ip) + "' from network list")
         return self._send("multiroom:SlaveMask:" + str(slave_ip)).content.decode("utf-8")
 
-    def multiroom_show(self, slave_ip):
+    def multiroom_show(self, slave_ip: str) -> str:
         """Force given slave_ip to show itself on the local network"""
         self._logger.info("Unhiding multiroom slave '" + str(slave_ip) + "' from network list")
         return self._send("multiroom:SlaveUnMask:" + str(slave_ip)).content.decode("utf-8")
 
-    def multiroom_off(self):
+    def multiroom_off(self) -> str:
         """Remove self from multiroom group and, if master, tear down the whole group"""
         self._logger.info("Tearing down the current multiroom group...")
         return self._send("multiroom:Ungroup").content.decode("utf-8")
 
     ''' Internal Methods '''
 
-    def _url(self, command):
+    def _url(self, command: str) -> str:
         """Internal method to construct url fragments from provided command"""
         return "http://" + self._address + "/httpapi.asp?command=" + command
 
-    def _send(self, command):
+    def _send(self, command: str) -> requests.Response:
         """Internal method to send raw fragments to the device"""
         fragment = self._url(command)
         self._logger.debug("Requesting '"+fragment+"'...")
@@ -628,21 +638,21 @@ class Client:
         except KeyboardInterrupt:
             raise linkplayctl.ConnectionException("Connection interrupted")
 
-    def _dehex(self, hex_string):
+    def _dehex(self, hex_string: str) -> str:
         """Decode hex_string into string, if possible, otherwise return hex_string unmodified"""
         try:
             return bytearray.fromhex(hex_string).decode()
         except ValueError:
             return hex_string
 
-    def _hex(self, string):
+    def _hex(self, string: str) -> str:
         """Encode string into hex, if possible, otherwise return string unmodified"""
         try:
             return "".join("{:02x}".format(c) for c in string.encode())
         except ValueError:
             return string
 
-    def _json_decode(self, s):
+    def _json_decode(self, s: object) -> object:
         try:
             s = s.content
         except AttributeError: pass
