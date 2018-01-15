@@ -13,6 +13,8 @@ class Client:
         self._address = address
         self._api_version = api_version
         self._logger = logger if logger else logging.getLogger('linkplayctl.client')
+        self._intercommand_delay = 2000
+        self._last_command_time = 0
         self.api_status_code = None
         self._equalizer_modes = {'off': 0, 'classical': 1, 'pop': 2, 'jazz': 3, 'vocal': 4}
         self._player_modes = {'none': 0, 'airplay': 1, 'dlna': 2, 'wiimu': 10, 'wiimu-local': 11, 'wiimu-station': 12,
@@ -152,10 +154,14 @@ class Client:
         self._logger.info("Retrieving WiFi channel...")
         return int(self._device_info().get("WifiChannel"))
 
-    def wifi_power(self) -> float:
-        """Get the current power of the wifi radio"""
-        self._logger.info("Retrieving current WiFi radio power... [NOT IMPLEMENTED]")
-        raise NotImplementedError("Command 'wifi_power' is not implemented yet")
+    def wifi_power(self, power: object = None) -> float:
+        """Get or set the current power of the wifi radio--currently, only supports setting to OFF/0"""
+        if power is None:
+            self._logger.info("Retrieving current WiFi radio power... [NOT IMPLEMENTED]")
+            raise NotImplementedError("Command 'wifi_power' is not implemented yet")
+        if (isinstance(power, str) and power.lower() == 'off') or not power:
+            return self.wifi_off()
+        raise NotImplementedError("Command 'wifi_power(<value>)' is not implemented yet")
 
     def wifi_mac(self) -> str:
         """Get the MAC of the wifi radio"""
@@ -623,20 +629,28 @@ class Client:
     def _send(self, command: str) -> requests.Response:
         """Internal method to send raw fragments to the device"""
         fragment = self._url(command)
-        self._logger.debug("Requesting '"+fragment+"'...")
+        t0 = time.time()
+        delay_ms = round(self._intercommand_delay - (t0 - self._last_command_time))
+        if delay_ms > 0:
+            self._logger.debug("Sleeping "+str(delay_ms)+"ms before starting another request...")
+            time.sleep(delay_ms / 1000.0)
+        self._logger.debug("Requesting '" + fragment + "'...")
         t0 = time.time()
         try:
             self._session = self._session if self._session else requests.session()
             response = self._session.get(fragment, timeout=30)
             self.api_status_code = response.status_code
             elapsed = round((time.time()-t0)*1000, 1)
-            self._logger.debug("Received response from device in "+str(elapsed)+"ms:"+
-                               " Status: "+str(self.api_status_code)+" Length: "+str(len(response.content))+" bytes")
+            self._logger.debug("Response received in "+str(elapsed)+"ms " +
+                               "[Status: "+str(self.api_status_code)+" Length: "+str(len(response.content))+"bytes]" +
+                               ((": "+str(response.content)) if len(response.content) < 16 else ""))
             return response
         except requests.exceptions.RequestException as e:
             raise linkplayctl.ConnectionException("Could not connect to '" + str(self._address) + "': " + str(e))
         except KeyboardInterrupt:
             raise linkplayctl.ConnectionException("Connection interrupted")
+        finally:
+            self._last_command_time = time.time()
 
     def _dehex(self, hex_string: str) -> str:
         """Decode hex_string into string, if possible, otherwise return hex_string unmodified"""
