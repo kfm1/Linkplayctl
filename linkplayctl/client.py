@@ -667,6 +667,7 @@ class Client:
             return string
 
     def _json_decode(self, s: object) -> object:
+        """Decode the given object as JSON"""
         try:
             s = s.content
         except AttributeError: pass
@@ -675,5 +676,5 @@ class Client:
         except UnicodeDecodeError: pass
         try:
             return json.JSONDecoder().decode(str(s))
-        except json.JSONDecodeError as e:
+        except (json.JSONDecodeError, ValueError) as e:
             raise linkplayctl.APIException("Expected JSON from API, got: '"+str(s)+"'")
