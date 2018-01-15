@@ -676,5 +676,5 @@ class Client:
         except UnicodeDecodeError: pass
         try:
             return json.JSONDecoder().decode(str(s))
-        except (json.JSONDecodeError, ValueError) as e:
+        except ValueError as e:  # json.JSONDecodeError is better for > 3.4
             raise linkplayctl.APIException("Expected JSON from API, got: '"+str(s)+"'")
