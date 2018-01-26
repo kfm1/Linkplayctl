@@ -630,8 +630,8 @@ class Client:
     def _send(self, command: str) -> requests.Response:
         """Internal method to send raw fragments to the device"""
         fragment = self._url(command)
-        t0 = time.time()
-        delay_ms = round(self._intercommand_delay - (t0 - self._last_command_time))
+        t0 = time.time()    # time() does not necessarily have subsecond precision, but we don't absolutely require it
+        delay_ms = round(self._intercommand_delay - 1000.0*(t0 - self._last_command_time))
         if delay_ms > 0:
             self._logger.debug("Sleeping "+str(delay_ms)+"ms before starting another request...")
             time.sleep(delay_ms / 1000.0)
