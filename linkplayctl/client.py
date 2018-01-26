@@ -53,10 +53,10 @@ class Client:
         return response.content.decode("utf-8")
 
     def reboot_silent(self) -> str:
-        """Reboot the device quietly, i.e., without boot jingle. Returns when complete, usually ~60 seconds."""
+        """Reboot the device quietly, i.e., without boot jingle. Returns when complete, usually ~120 seconds."""
         t0 = time.time()
         self._logger.info("Requesting quiet reboot...")
-        self._logger.info("Note: This blocking call may take ~60 seconds to return")
+        self._logger.info("Note: This blocking call may take ~120 seconds to return")
         old_volume = self._volume()
         self._logger.debug("Saving current volume '"+str(old_volume)+"' and setting volume to 1...")
         self._volume(1)
@@ -65,7 +65,7 @@ class Client:
             raise linkplayctl.APIException("Failed to set volume before quiet reboot")
         self._logger.debug("Starting reboot...")
         self._reboot()
-        sleep_length = 60  # 60 seconds is minimum--anything less causes device to hang on subsequent calls
+        sleep_length = 120  # 60 seconds is minimum--anything less causes device to hang on subsequent calls
         self._logger.debug("Sleeping "+str(sleep_length)+" seconds while device reboots...")
         time.sleep(sleep_length)
         self._logger.debug("Restoring previous volume '" + str(old_volume) + "'")
