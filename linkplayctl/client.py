@@ -10,7 +10,7 @@ class Client:
     """Simple Linkplay API client"""
 
     def __init__(self, address, api_version=1, logger=None):
-        self._address = address
+        self._address = address             # TODO: Accept a host
         self._api_version = api_version
         self._logger = logger if logger else logging.getLogger('linkplayctl.client')
         self._reboot_delay = 60000          # Milliseconds to wait after a reboot for device to come back up
@@ -479,11 +479,11 @@ class Client:
         return self.volume("-"+str(value))
 
     def mute(self, value=None):
-        """Get or set the muting state. 'off' or falsy values turn muting off, otherwise muting is turned on."""
+        """Get or set the muting. Falsy or 'off' (case insensitive) turn muting off, other values turn muting on."""
         if value is None:
             self._logger.info("Retrieving state of muting function...")
-            return int(self._player_info().get("mute")) == 1
-        if not value or (isinstance(value, str) and (value == '0' or value == 'off')):
+            return "on" if int(self._player_info().get("mute")) == 1 else "off"
+        if not value or (isinstance(value, str) and (value == '0' or value.lower() == 'off')):
             return self.mute_off()
         return self.mute_on()
 
