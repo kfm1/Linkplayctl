@@ -13,7 +13,9 @@ class Client:
         self._address = address
         self._api_version = api_version
         self._logger = logger if logger else logging.getLogger('linkplayctl.client')
-        self._intercommand_delay = 2000
+        self._reboot_delay = 60000          # Milliseconds to wait after a reboot for device to come back up
+        self._quiet_reboot_volume = 1       # Set device to this volume when doing quiet reboots
+        self._intercommand_delay = 2000     # Minimum milliseconds to wait between sending commands to a device
         self._last_command_time = 0
         self.api_status_code = None
         self._equalizer_modes = {'off': 0, 'classical': 1, 'pop': 2, 'jazz': 3, 'vocal': 4}
@@ -48,36 +50,99 @@ class Client:
         """Internal, non-blocking method for performing reboots"""
         response = self._send("reboot")
         if response.status_code != 200 or response.content.decode("utf-8") != "OK":
-            raise linkplayctl.APIException("Failed to reboot: "+
+            raise linkplayctl.APIException("Failed to reboot: " +
                                            "Status "+str(response.status_code)+" Content: "+response.content)
         return response.content.decode("utf-8")
 
-    def reboot_silent(self) -> str:
+    def safe_reboot(self, max_retries: int=3) -> str:
+        """Request a verified reboot, retrying up to <max_tries> times if necessary"""
+        self._logger.info("Requesting safe reboot...")
+        if self._reboot_delay > 5000:
+            sleep_length = max(0, round(self._reboot_delay / 1000.0))
+            self._logger.info("Note: This call may take "+str(sleep_length)+" seconds or more to return")
+        return self._safe_reboot(max_retries)
+
+    def _safe_reboot(self, max_retries: int=3) -> str:
+        t0 = time.time()
+        try_count = 1
+        while try_count <= max_retries+1 or max_retries < 0:
+            self._logger.debug("Starting reboot attempt "+str(try_count)+" of " +
+                               (str(max_retries+1) if max_retries >= 0 else "<unlimited>")+"...")
+            self._logger.debug("Requesting reboot...")
+            self._reboot()
+            sleep_length = max(0, round(self._reboot_delay / 1000.0))
+            self._logger.debug("Waiting "+str(sleep_length)+" seconds while device reboots...")
+            time.sleep(sleep_length)
+            self._logger.debug("Verifying device is back up and responsive after reboot...")
+            if self._check():
+                break
+            # This reboot attempt failed.  Try again or give up:
+            if try_count >= max_retries+1:
+                raise linkplayctl.APIException("Failed to bring device back up after " + str(max_retries) +
+                                               " reboot attempts. Giving up.")
+            self._logger.debug("Device is not responding after reboot. Trying again...")
+            try_count = try_count + 1
+        # Reboot was successful
+        elapsed_time = "{:,}".format(round((time.time()-t0), 1))
+        if try_count > 1:
+            self._logger.info("Safe reboot required " + str(try_count) + " attempts and "+elapsed_time+" seconds.")
+        else:
+            self._logger.debug("Safe reboot complete first attempt and " + elapsed_time + " seconds.")
+        return "OK"
+
+    def reboot_safe(self, max_retries: int=3) -> str:
+        """Alias for safe_reboot()"""
+        return self.safe_reboot(max_retries)
+
+    def _check(self) -> bool:
+        """Return True if device is reachable and responsive, false otherwise"""
+        # Check if player_info() request returns an error (an APIException or invalid data)
+        try:
+            info = self._player_info()
+        except (linkplayctl.APIException, linkplayctl.ConnectionException) as e:
+            self._logger.debug("Device is not okay: "+str(e))
+            return False
+        if not isinstance(info, dict) or 'vol' not in info.keys():
+            self._logger.debug("Device is not okay: Missing info dictionary or volume key")
+            return False
+        return True
+
+    def quiet_reboot(self) -> str:
         """Reboot the device quietly, i.e., without boot jingle. Returns when complete, usually ~120 seconds."""
         t0 = time.time()
+        sleep_length = max(0, round(self._reboot_delay/1000.0))
         self._logger.info("Requesting quiet reboot...")
-        self._logger.info("Note: This call may take ~120 seconds to return")
+        if self._reboot_delay > 5000:
+            self._logger.info("Note: This call may take "+str(sleep_length)+" seconds or more to return")
         self._logger.debug("Getting current volume...")
         old_volume = self._volume()
-        self._logger.debug("Saving current volume '"+str(old_volume)+"' and setting new volume to 1...")
-        self._volume(1)
-        self._logger.debug("Verifying volume has been correctly set to 1...")
-        if 1 != int(self._volume()):
-            raise linkplayctl.APIException("Failed to set volume before quiet reboot")
-        self._logger.debug("Starting reboot...")
-        self._reboot()
-        sleep_length = 120  # 60 seconds is minimum--anything less causes device to hang on subsequent calls
-        self._logger.debug("Sleeping "+str(sleep_length)+" seconds while device reboots...")
-        time.sleep(sleep_length)
+        self._logger.debug("Saving current volume '"+str(old_volume)+"' and setting new volume to '" +
+                           str(self._quiet_reboot_volume)+"'...")
+        self._volume(self._quiet_reboot_volume)
+        self._logger.debug("Verifying volume has been correctly set to minimum...")
+        if int(self._volume()) != self._quiet_reboot_volume:
+            raise linkplayctl.APIException("Failed to set volume to minimum before quiet reboot")
+        self._safe_reboot()
         self._logger.debug("Restoring previous volume '" + str(old_volume) + "'...")
         self._volume(old_volume)
+        self._logger.debug("Confirming new volume is set to '" + str(old_volume) + "'...")
+        if old_volume != int(self._volume()):
+            raise linkplayctl.APIException("Failed to restore old volume '"+str(old_volume)+"' after reboot")
         elapsed_time = "{:,}".format(round((time.time()-t0)*1000, 1))
         self._logger.debug("Quiet reboot complete.  Elapsed time: "+str(elapsed_time)+"ms")
         return "OK"
 
+    def reboot_quiet(self) -> str:
+        """Alias for quiet_reboot()"""
+        return self.quiet_reboot()
+
     def silent_reboot(self) -> str:
-        """Alias for reboot_silent()"""
-        return self.reboot_silent()
+        """Alias for quiet_reboot()"""
+        return self.quiet_reboot()
+
+    def reboot_silent(self) -> str:
+        """Alias for quiet_reboot()"""
+        return self.quiet_reboot()
 
     def shutdown(self) -> str:
         """Request an immediate device shutdown"""
@@ -119,7 +184,7 @@ class Client:
         return response.content.decode("utf-8")
 
     def group(self) -> str:
-        """Get the name of the multiroom group to which the device belongs"""  # TODO: Is this same as multiroom master?
+        """Get the name of the multiroom group to which the device belongs"""  # TODO: Same as multiroom master?
         self._logger.info("Retrieving device group name...")
         return self._device_info().get("GroupName")
 
@@ -155,7 +220,7 @@ class Client:
         self._logger.info("Retrieving WiFi channel...")
         return int(self._device_info().get("WifiChannel"))
 
-    def wifi_power(self, power: object = None) -> float:
+    def wifi_power(self, power: object = None) -> object:
         """Get or set the current power of the wifi radio--currently, only supports setting to OFF/0"""
         if power is None:
             self._logger.info("Retrieving current WiFi radio power... [NOT IMPLEMENTED]")
@@ -599,7 +664,7 @@ class Client:
         """Set the multiroom master of this device"""
         self._logger.info("Requesting multiroom sync as slave to master at ssid '"+str(ssid)+"'...")
         return self._send("ConnectMasterAp:ssid=" + str(self._hex(ssid)) + ":ch=" + str(channel) + ":auth=" + auth +
-                          ":encry=" + encryption +":pwd=" + self._hex(psk) + ":chext=0").content.decode("utf-8")
+                          ":encry=" + encryption + ":pwd=" + self._hex(psk) + ":chext=0").content.decode("utf-8")
 
     def multiroom_remove(self, slave_ip: str) -> str:
         """Remove device at slave_ip from this multiroom group"""
@@ -633,7 +698,7 @@ class Client:
         t0 = time.time()    # time() does not necessarily have subsecond precision, but we don't absolutely require it
         delay_ms = round(self._intercommand_delay - 1000.0*(t0 - self._last_command_time))
         if delay_ms > 0:
-            self._logger.debug("Sleeping "+str(delay_ms)+"ms before starting another request...")
+            self._logger.debug("Waiting "+str(delay_ms)+"ms before starting another request...")
             time.sleep(delay_ms / 1000.0)
         self._logger.debug("Requesting '" + fragment + "'...")
         t0 = time.time()
@@ -677,5 +742,5 @@ class Client:
         except UnicodeDecodeError: pass
         try:
             return json.JSONDecoder().decode(str(s))
-        except ValueError as e:  # json.JSONDecodeError is better for > 3.4
+        except ValueError:  # json.JSONDecodeError is better for > 3.4
             raise linkplayctl.APIException("Expected JSON from API, got: '"+str(s)+"'")
