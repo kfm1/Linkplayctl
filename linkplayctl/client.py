@@ -59,7 +59,7 @@ class Client:
         self._logger.info("Requesting safe reboot...")
         if self._reboot_delay > 5000:
             sleep_length = max(0, round(self._reboot_delay / 1000.0))
-            self._logger.info("Note: This call may take "+str(sleep_length)+" seconds or more to return")
+            self._logger.info("Note: This call may take "+str(sleep_length*max_retries)+" seconds or more to return")
         return self._safe_reboot(max_retries)
 
     def _safe_reboot(self, max_retries: int=3) -> str:
@@ -85,9 +85,10 @@ class Client:
         # Reboot was successful
         elapsed_time = "{:,}".format(round((time.time()-t0), 1))
         if try_count > 1:
-            self._logger.info("Safe reboot required " + str(try_count) + " attempts and "+elapsed_time+" seconds.")
+            self._logger.info("Device required " + str(try_count) + " reboots to become responsive." +
+                              " Elapsed time: "+elapsed_time+"s")
         else:
-            self._logger.debug("Safe reboot complete first attempt and " + elapsed_time + " seconds.")
+            self._logger.debug("Device is responsive after first reboot. Elapsed time: " + elapsed_time + "s")
         return "OK"
 
     def reboot_safe(self, max_retries: int=3) -> str:
@@ -479,11 +480,11 @@ class Client:
         return self.volume("-"+str(value))
 
     def mute(self, value=None):
-        """Get or set the muting. Falsy or 'off' (case insensitive) turn muting off, other values turn muting on."""
+        """Get or set mute. Falsy vals, 'off', or 'false' (case insensitive) turn mute off, others turn mute on."""
         if value is None:
             self._logger.info("Retrieving state of muting function...")
             return "on" if int(self._player_info().get("mute")) == 1 else "off"
-        if not value or (isinstance(value, str) and (value == '0' or value.lower() == 'off')):
+        if not value or (isinstance(value, str) and value.lower() in ['0', 'off', 'false']):
             return self.mute_off()
         return self.mute_on()
 
