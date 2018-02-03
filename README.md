@@ -1,7 +1,7 @@
 
 # Linkplayctl
 
-A simple shell & python client for controlling Linkplay devices.
+A simple shell & python client for controlling wireless speakers and receivers.
 
 Linkplay is a whitelabel manufacturer that powers a number of brands of wireless speakers and receivers, including:
 * Muzo Cobblestone
@@ -16,14 +16,14 @@ Linkplayctl can control these devices (and many more).  Linkplayctl can remotely
 
 ### Installation
 
-Linkplayctl requires Python 3 and these modules:
+Linkplayctl requires Python 3 and the following module:
 * requests
 
 If your environment does not have the requests module already, the simplest way to acquire it is to install pip.  On Ubuntu, try
 ```sudo apt-get install python3-pip```  or similar.
 
 To get the linkplayctl module, download from github or clone:
-```git clone ```
+```git clone https://github.com/kfm1/Linkplayctl.git```
 
 
 ### Example Usage
@@ -36,9 +36,12 @@ import Linkplayctl
 client = Linkplayctl.Client("192.168.1.55") # Address of the linkplay device
 client.reboot()                             # Reboot device
 client.play("http://path/to/playlist")      # Play streaming playlist
-client.volume_up()                          # Increase volume by one step
+client.volume(100)                          # Set volume to maximum
 client.equalizer("jazz")                    # Set the equalizer mode to jazzy
 client.rewind(10)                           # Rewind playback by 10 seconds
+client.volume_down()                        # Decrease volume by one step (~5%)
+client.reboot_quiet()                       # Reboot without startup jingle
+client.volume()                             # Get current volume
 ...
 
 ```
@@ -50,12 +53,18 @@ $> bin/linkplayctl 192.168.1.55 reboot
 OK
 $> bin/linkplayctl 192.168.1.55 play "http://path/to/playlist"
 OK
-$> bin/linkplayctl 192.168.1.55 volume up
+$> bin/linkplayctl 192.168.1.55 volume 100
 OK
 $> bin/linkplayctl 192.168.1.55 equalizer jazz
 OK
 $> bin/linkplayctl 192.168.1.55 rewind 10
 OK
+$> bin/linkplayctl 192.168.1.55 volume down
+OK
+$> bin/linkplayctl 192.168.1.55 reboot quiet
+OK
+$> bin/linkplayctl 192.168.1.55 volume
+95
 ...
 
 ```
