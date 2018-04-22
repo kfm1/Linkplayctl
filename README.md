@@ -10,7 +10,7 @@ Linkplay is a whitelabel manufacturer that powers a number of brands of wireless
 * iEast SoundStream & StreamAmp
 * Everything listed at http://linkplay.com/featured-products/
 
-Linkplayctl can control these devices (and many more).  Linkplayctl can remotely reboot devices, start and stop playback, adjust volume, get hardware and player information, turn off annoying jingles, etc.  
+Linkplayctl can control these devices (and many more).  Linkplayctl can remotely reboot devices, start and stop playback, adjust volume, hide the SSID, get hardware and player information, turn off annoying jingles, etc.
 
 
 
@@ -42,6 +42,8 @@ client.rewind(10)                           # Rewind playback by 10 seconds
 client.volume_down()                        # Decrease volume by one step (~5%)
 client.reboot_quiet()                       # Reboot without startup jingle
 client.volume()                             # Get current volume
+client.wifi_hidden('on')                    # Hide the SSID
+client.wifi_hidden()                        # Return 'on' if SSID is hidden, 'off' otherwise
 ...
 
 ```
@@ -65,6 +67,10 @@ $> bin/linkplayctl 192.168.1.55 reboot quiet
 OK
 $> bin/linkplayctl 192.168.1.55 volume
 95
+$> bin/linkplayctl 192.168.1.55 wifi hidden on
+OK
+$> bin/linkplayctl 192.168.1.55 wifi hidden
+on
 ...
 
 ```

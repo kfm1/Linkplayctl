@@ -3,6 +3,7 @@ import time
 import requests
 import json
 import math
+import socket
 import linkplayctl
 
 
@@ -10,7 +11,7 @@ class Client:
     """Simple Linkplay API client"""
 
     def __init__(self, address, api_version=1, logger=None):
-        self._address = address             # TODO: Accept a host
+        self._address = address             # TODO: Accept a hostname
         self._api_version = api_version
         self._logger = logger if logger else logging.getLogger('linkplayctl.client')
         self._reboot_delay = 60000          # Milliseconds to wait after a reboot for device to come back up
@@ -44,6 +45,7 @@ class Client:
     def reboot(self) -> str:
         """Request an immediate device reboot"""
         self._logger.info("Requesting reboot...")
+        self._logger.info("Note: Linkplay bug: Device my be unresponsive after reboot.  Try safe_reboot().")
         return self._reboot()
 
     def _reboot(self) -> str:
@@ -211,10 +213,22 @@ class Client:
         self._logger.info("Retrieving WiFi SSID...")
         return self._device_info().get("ssid")
 
-    def wifi_ssid_hidden(self) -> bool:
-        """Returns True if the device's WiFi's SSID is hidden, False otherwise"""
-        self._logger.info("Retrieving WiFi hidden SSID flag...")
-        return int(self._device_info().get("hideSSID")) == 1
+    def wifi_hidden(self, state: object = None):
+        """Get or set device's WiFi's hidden SSID status--pass OFF or 0 to unhide, anything else to hide"""
+        if state is None:
+            self._logger.info("Retrieving WiFi hidden SSID status...")
+            return "on" if int(self._device_info().get("hideSSID")) == 1 else "off"
+        if (isinstance(state, str) and state.lower() == 'off') or not state:
+            return self._wifi_hidden_off()
+        self._wifi_hidden_on()
+
+    def wifi_hidden_on(self):
+        self._logger.info("Hiding WiFi SSID...")
+        return self._send("setHideSSID:1").content.decode("utf-8")
+
+    def wifi_hidden_off(self):
+        self._logger.info("Unhiding WiFi SSID...")
+        return self._send("setHideSSID:0").content.decode("utf-8")
 
     def wifi_channel(self) -> int:
         """Returns the current channel of the device's WiFi radio"""
