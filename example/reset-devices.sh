@@ -4,10 +4,11 @@
 #
 # Linkplay devices get unstable after being up for too long.  This script takes a list of devices and
 # performs the following actions on each one:
-#   * Quiet reboot
+#   * Quiet reboot (disables reboot chimes and keeps rebooting until device comes up correctly)
 #   * Disable voice prompts and chimes
+#   * Hide WiFi SSID
 #   * Set volume to a default value
-#   * TODO: Set muting to a default value
+#   * TODO: Set muting to a default value??
 
 # List of all the linkplay devices that should be reset:
 DEVICES=("192.168.2.81" "192.168.2.82" "192.168.2.83" "192.168.2.84")
@@ -57,6 +58,11 @@ do
     printf '\n'
     sleep 2
 
+    # Hide SSID
+    ${LINKPLAYCTL} -v ${device} wifi hidden on
+    printf '\n'
+    sleep 2
+
     # Set device to new volume, if provided
     if [[ ! -z "${DEFAULT_VOLUME}" ]]
     then
@@ -68,5 +74,6 @@ do
         printf '\n'
         sleep 2
     fi
+    sleep 2
 
 done
