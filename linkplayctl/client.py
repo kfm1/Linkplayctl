@@ -116,7 +116,7 @@ class Client:
         sleep_length = max(0, round(self._reboot_delay/1000.0))
         self._logger.info("Requesting quiet reboot...")
         if self._reboot_delay > 5000:
-            self._logger.info("Note: This call may take "+str(sleep_length)+" seconds or more to return")
+            self._logger.info("Note: This request may take "+str(sleep_length)+" seconds or more to finish")
         self._logger.debug("Getting current volume...")
         old_volume = self._volume()
         self._logger.debug("Saving current volume '"+str(old_volume)+"' and setting new volume to '" +
