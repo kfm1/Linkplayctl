@@ -31,6 +31,7 @@ log = logging.getLogger('linkplayctl').getChild('main')
 
 try:
     git_version = subprocess.check_output(["git", "describe", "--long", "--always", "--dirty"],
+                                          stderr=subprocess.PIPE,
                                           cwd=os.path.dirname(os.path.realpath(__file__))).strip().decode("utf-8")
 except subprocess.CalledProcessError:
     git_version = "------"
